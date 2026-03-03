@@ -2,11 +2,12 @@ letsencrypt/
 traefik/docker-compose.yaml
 nginx.conf
 nginx.conf.bak
-huly.conf
-huly_v7.conf
-.huly.secret
+platform.conf
+platform_v7.conf
+.platform.secret
 .cr.secret
 .rp.secret
 .idea
 data
 certs/
+self_*

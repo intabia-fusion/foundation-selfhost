@@ -1,25 +1,23 @@
-# Huly Self-Hosted
+# Platform Self-Hosted
 
-Please use this README if you want to deploy Huly on your server with `docker compose`.
-
-If you prefer Kubernetes deployment, there is a sample Kubernetes configuration under [kube](kube) directory.
+Please use this README if you want to deploy Platform on your server with `docker compose`.
 
 ## Docker based deployment
 
 Install docker using the [recommended method](https://docs.docker.com/engine/install/ubuntu/) from docker website.
 Afterwards perform [post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/). Pay attention to 3rd step with `newgrp docker` command, it needed for correct execution in setup script.
 
-## Clone the `huly-selfhost` repository and configure `nginx`
+## Clone the `foundation-selfhost` repository and configure `nginx`
 
-Next, let's clone the `huly-selfhost` repository and configure Huly.
+Next, let's clone the `foundation-selfhost` repository and configure Platform.
 
 ```bash
-git clone https://github.com/haiodo/huly-selfhost.git
-cd huly-selfhost
+git clone https://github.com/intabiafusion/foundation-selfhost.git
+cd foundation-selfhost
 ./setup.sh
 ```
 
-This will generate a [huly_v7.conf](./huly_v7.conf) file with your chosen values and create your nginx config.
+This will generate a [platform_v7.conf](./platform_v7.conf) file with your chosen values and create your nginx config.
 
 To add the generated configuration to your Nginx setup, run the following:
 
@@ -38,7 +36,7 @@ sudo ln -s $(pwd)/nginx.conf /etc/nginx/sites-enabled/huly.conf
 > You can safely execute this script after adding your custom configurations like ssl. It will only overwrite the
 > necessary settings.
 
-Finally, let's reload `nginx` and start Huly with `docker compose`.
+Finally, let's reload `nginx` and start Platform with `docker compose`.
 
 ```bash
 sudo nginx -s reload
@@ -82,7 +80,7 @@ To quickly reset all volumes back to default Docker named volumes without prompt
 
 ### Manual Configuration
 
-You can also manually configure volume paths by editing the `huly_v7.conf` file:
+You can also manually configure volume paths by editing the `platform_v7.conf` file:
 
 ```bash
 # Docker volume paths - specify custom paths for persistent data storage
@@ -200,7 +198,7 @@ Add the `ses` container to your `docker-compose.yaml` file with the generated VA
 
 ```yaml
 ses:
-  image: haiodo/ses:${HULY_VERSION}
+  image: intabiafusion/ses:${PLATFORM_VERSION}
   environment:
     - PORT=3335
     - SOURCE=mail@example.com
@@ -217,61 +215,86 @@ ses:
 
 The Mail Service is responsible for sending email notifications and confirmation emails during user login or signup processes. It can be configured to send emails through either an SMTP server or Amazon SES (Simple Email Service), but not both at the same time.
 
+> [!IMPORTANT]
+> **For normal operation, an SMTP server is required.** The default configuration includes Mailpit for debugging purposes, which captures all outgoing emails but does not deliver them to real recipients.
+
+### Default Configuration (Mailpit for Debugging)
+
+By default, the setup includes **Mailpit** - a lightweight SMTP server that captures all outgoing emails for debugging:
+
+- **Mailpit Web UI**: http://localhost:8025 (view captured emails)
+- **Mailpit SMTP**: localhost:1025 (receives emails from the application)
+- **Mail Service**: http://localhost:8097 (Platform's mail API)
+
+This configuration is useful for development and testing, but **emails are not delivered to real recipients**. For production use, configure an external SMTP server or Amazon SES.
+
 ### General Configuration
 
-1. Add the `mail` container to the `docker-compose.yaml` file. Specify the email address you will use to send emails as "SOURCE":
+1. The default `compose.yml` already includes the mail infrastructure:
+   - `mailpit` - SMTP server for capturing emails (port 8025 for UI, 1025 for SMTP)
+   - `mail_server` - Platform mail server (port 8097)
+   - `mail_client` - Platform mail client worker
+
+2. To use your own SMTP server instead of Mailpit, update the `mail_server` environment variables in `compose.yml`:
 
    ```yaml
-   mail:
-     image: haiodo/mail:${HULY_VERSION}
-     container_name: mail
-     ports:
-       - 8097:8097
+   mail_server:
+     image: intabiafusion/mail:${PLATFORM_VERSION}
      environment:
+       - MODE=server
        - PORT=8097
-       - SOURCE=<EMAIL_FROM>
-     restart: unless-stopped
-     networks:
-       - huly_net
-   ```
-
-2. Add the mail container URL to the `transactor` and `account` containers:
-
-   ```yaml
-   account:
-     ...
-     environment:
-       - MAIL_URL=http://mail:8097
-     ...
-   transactor:
-     ...
-     environment:
-       - MAIL_URL=http://mail:8097
+       - SOURCE=hello@yourdomain.com
+       - SMTP_HOST=smtp.yourdomain.com
+       - SMTP_PORT=587
+       - SMTP_USERNAME=your_smtp_user
+       - SMTP_PASSWORD=your_smtp_password
+       - SMTP_TLS_MODE=require
      ...
    ```
+
+3. The mail URL is already configured in `transactor`, `account`, `workspace`, and `front` services via `MAIL_URL=http://mail_server:8097`.
 
 3. In `Settings -> Notifications`, set up email notifications for the events you want to be notified about. Note that this is a user-specific setting, not company-wide; each user must set up their own notification preferences.
 
-### SMTP Configuration
+### SMTP Configuration (Replacing Mailpit)
 
-To integrate with an external SMTP server, update the `docker-compose.yaml` file with the following environment variables:
+To send emails to real recipients instead of capturing them in Mailpit, configure an external SMTP server:
 
-1. Add SMTP configuration to the environment section:
+1. Update the `mail_server` environment variables in `compose.yml`:
 
    ```yaml
-   mail:
+   mail_server:
      ...
      environment:
-       ...
-       - SMTP_HOST=<SMTP_SERVER_URL>
-       - SMTP_PORT=<SMTP_SERVER_PORT>
-       - SMTP_USERNAME=<SMTP_USER>
-       - SMTP_PASSWORD=<SMTP_PASSWORD>
+       - MODE=server
+       - PORT=8097
+       - SOURCE=noreply@yourdomain.com
+       - SMTP_HOST=smtp.yourdomain.com
+       - SMTP_PORT=587
+       - SMTP_USERNAME=your_smtp_user
+       - SMTP_PASSWORD=your_smtp_password
+       - SMTP_TLS_MODE=require
    ```
 
-2. Replace `<SMTP_SERVER_URL>` and `<SMTP_SERVER_PORT>` with your SMTP server's hostname and port. It's recommended to use a secure port, such as `587`.
+2. Replace `smtp.yourdomain.com` and `587` with your SMTP server's hostname and port. Common ports:
+   - `587` - SMTP with STARTTLS (recommended)
+   - `465` - SMTPS (SMTP over SSL)
+   - `25` - SMTP (often blocked by ISPs)
 
-3. Replace `<SMTP_USER>` and `<SMTP_PASSWORD>` with credentials for an account that can send emails via your SMTP server. If your service provider supports it, consider using an application API key as `<SMTP_USER>` and a token as `<SMTP_PASSWORD>` for enhanced security.
+3. Replace `your_smtp_user` and `your_smtp_password` with your SMTP credentials. Consider using an application-specific password or API key for security.
+
+4. You can optionally remove or disable the `mailpit` service if you no longer need it for debugging:
+
+   ```yaml
+   # Comment out or remove these services
+   # mailpit:
+   #   ...
+   # mail_client:
+   #   ...
+   ```
+
+   > [!NOTE]
+   > Keep `mail_server` running as it's required for the Platform's mail API.
 
 ### Amazon SES Configuration
 
@@ -311,15 +334,30 @@ To integrate with an external SMTP server, update the `docker-compose.yaml` file
 To verify that the mail service is running correctly:
 
 ```bash
-# Check if the mail container is running
+# Check if the mail containers are running
 sudo docker ps | grep mail
 
 # View mail service logs
-sudo docker logs mail
+sudo docker logs mail_server
+sudo docker logs mail_client
+
+# View Mailpit logs
+sudo docker logs mailpit
 
 # Follow mail service logs in real-time
-sudo docker logs -f mail
+sudo docker logs -f mail_server
 ```
+
+### Accessing Mailpit Web Interface
+
+When using the default Mailpit configuration, you can view captured emails:
+
+1. Open http://localhost:8025 in your browser
+2. All emails sent by the application will appear in the Mailpit inbox
+3. Click on an email to view its contents, headers, and HTML/text versions
+4. Use Mailpit's search and filtering features to find specific emails
+
+This is useful for debugging email flows during development without sending real emails.
 
 ### Troubleshooting SMTP Issues
 
@@ -343,7 +381,7 @@ Huly audio and video calls are created on top of a LiveKit media server. The rep
 
 1. Run `./setup.sh` and answer **Yes** when prompted about LiveKit. The helper can reuse an existing
    configuration or execute `docker run --rm -it -v "$PWD":/output livekit/generate --local` to mint a new
-   API key and secret, update `livekit.yaml`, and inject the resulting values into `huly_v7.conf`.
+   API key and secret, update `livekit.yaml`, and inject the resulting values into `platform_v7.conf`.
 2. When asked for the TURN domain, supply a DNS hostname that resolves to the same IP as your primary Huly domain.
    The script suggests `turn.<your-domain>` automatically, but you can override it if you prefer a different
    subdomain. Make sure you create DNS records for both the primary hostname and the TURN hostname, and open these
@@ -373,7 +411,7 @@ Huly audio and video calls are created on top of a LiveKit media server. The rep
 
    ```yaml
    print:
-     image: haiodo/print:${HULY_VERSION}
+     image: intabiafusion/print:${PLATFORM_VERSION}
      container_name: print
      ports:
        - 4005:4005
@@ -411,7 +449,7 @@ Huly provides AI-powered chatbot that provides several services:
 
    ```yaml
    aibot:
-     image: haiodo/ai-bot:${HULY_VERSION}
+     image: intabiafusion/ai-bot:${PLATFORM_VERSION}
      ports:
        - 4010:4010
      environment:
@@ -473,7 +511,7 @@ Add `calendar` container to the docker-compose.yaml
 
 ```yaml
 calendar:
-  image: haiodo/calendar:${HULY_VERSION}
+  image: intabiafusion/calendar:${PLATFORM_VERSION}
   ports:
     - 8095:8095
   environment:
@@ -624,7 +662,7 @@ Enable the following event subscriptions:
 
 ```yaml
 github:
-  image: haiodo/github:${HULY_VERSION}
+  image: intabiafusion/github:${PLATFORM_VERSION}
   ports:
     - 3500:3500
   environment:

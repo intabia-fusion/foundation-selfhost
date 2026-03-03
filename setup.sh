@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-CONFIG_FILE="huly_v7.conf"
+CONFIG_FILE="platform_v7.conf"
 
 # Parse command line arguments
 RESET_VOLUMES=false
@@ -261,11 +261,11 @@ echo -e "\n\033[1;34mDocker Volume Configuration:\033[0m"
         _VOLUME_REDPANDA_PATH="${input:-${VOLUME_REDPANDA_PATH}}"
     fi
 
-if [ ! -f .huly.secret ] || [ "$SECRET" == true ]; then
-  openssl rand -hex 32 > .huly.secret
-  echo "Secret generated and stored in .huly.secret"
+if [ ! -f .platform.secret ] || [ "$SECRET" == true ]; then
+  openssl rand -hex 32 > .platform.secret
+  echo "Secret generated and stored in .platform.secret"
 else
-  echo -e "\033[33m.huly.secret already exists, not overwriting."
+  echo -e "\033[33m.platform.secret already exists, not overwriting."
   echo "Run this script with --secret to generate a new secret."
 fi
 
@@ -332,14 +332,31 @@ export HTTP_BIND=$HTTP_BIND
 export TITLE=${TITLE:-Huly}
 export DEFAULT_LANGUAGE=${DEFAULT_LANGUAGE:-en}
 export LAST_NAME_FIRST=${LAST_NAME_FIRST:-true}
-export POSTGRES_DB=${POSTGRES_DB:-huly}
-export POSTGRES_USER=${POSTGRES_USER:-huly}
+export POSTGRES_DB=${POSTGRES_DB:-platform}
+export POSTGRES_USER=${POSTGRES_USER:-platform}
 export REDPANDA_ADMIN_USER=${REDPANDA_ADMIN_USER:-superadmin}
-export VOLUME_ELASTIC_PATH=$_VOLUME_ELASTIC_PATH
-export VOLUME_FILES_PATH=$_VOLUME_FILES_PATH
-export VOLUME_POSTGRES_DATA_PATH=$_VOLUME_POSTGRES_DATA_PATH
-export VOLUME_REDPANDA_PATH=$_VOLUME_REDPANDA_PATH
-export HULY_SECRET=$(cat .huly.secret)
+# Ensure volume paths have ./ prefix for relative paths (required by Docker Compose)
+if [[ -n "$_VOLUME_ELASTIC_PATH" && ! "$_VOLUME_ELASTIC_PATH" =~ ^(/|\./) ]]; then
+    export VOLUME_ELASTIC_PATH="./$_VOLUME_ELASTIC_PATH"
+else
+    export VOLUME_ELASTIC_PATH=$_VOLUME_ELASTIC_PATH
+fi
+if [[ -n "$_VOLUME_FILES_PATH" && ! "$_VOLUME_FILES_PATH" =~ ^(/|\./) ]]; then
+    export VOLUME_FILES_PATH="./$_VOLUME_FILES_PATH"
+else
+    export VOLUME_FILES_PATH=$_VOLUME_FILES_PATH
+fi
+if [[ -n "$_VOLUME_POSTGRES_DATA_PATH" && ! "$_VOLUME_POSTGRES_DATA_PATH" =~ ^(/|\./) ]]; then
+    export VOLUME_POSTGRES_DATA_PATH="./$_VOLUME_POSTGRES_DATA_PATH"
+else
+    export VOLUME_POSTGRES_DATA_PATH=$_VOLUME_POSTGRES_DATA_PATH
+fi
+if [[ -n "$_VOLUME_REDPANDA_PATH" && ! "$_VOLUME_REDPANDA_PATH" =~ ^(/|\./) ]]; then
+    export VOLUME_REDPANDA_PATH="./$_VOLUME_REDPANDA_PATH"
+else
+    export VOLUME_REDPANDA_PATH=$_VOLUME_REDPANDA_PATH
+fi
+export PLATFORM_SECRET=$(cat .platform.secret)
 export POSTGRES_SECRET=$(cat .postgres.secret)
 export REDPANDA_SECRET=$(cat .rp.secret)
 export LIVEKIT_HOST=${_LIVEKIT_HOST}
@@ -356,7 +373,7 @@ export OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://localhost:1234/v1/}
 export OPENAI_SUMMARY_MODEL=${OPENAI_SUMMARY_MODEL:-openai/gpt-oss-20b}
 export OPENAI_TRANSLATE_MODEL=${OPENAI_TRANSLATE_MODEL:-openai/gpt-oss-20b}
 
-envsubst < .template.huly.conf > $CONFIG_FILE
+envsubst < .template.platform.conf > $CONFIG_FILE
 
 source "$CONFIG_FILE"
 export CR_DB_URL=$CR_DB_URL

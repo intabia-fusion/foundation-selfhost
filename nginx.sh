@@ -4,8 +4,8 @@ if [ -f ".env" ]; then
     source ".env"
 fi
 
-if [ -z "$LIVEKIT_ENABLED" ] && [ -f "huly_v7.conf" ]; then
-    source "huly_v7.conf"
+if [ -z "$LIVEKIT_ENABLED" ] && [ -f "platform_v7.conf" ]; then
+    source "platform_v7.conf"
 fi
 
 # Check for --recreate flag

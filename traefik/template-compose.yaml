@@ -1,6 +1,6 @@
 x-common-env: &common-env
-  SERVER_SECRET: ${HULY_SECRET}
-  SECRET: ${HULY_SECRET}
+  SERVER_SECRET: ${PLATFORM_SECRET}
+  SECRET: ${PLATFORM_SECRET}
   STORAGE_CONFIG: minio|minio?accessKey=minioadmin&secretKey=minioadmin
   MONGO_URL: mongodb://mongodb:27017
   DB_URL: mongodb://mongodb:27017
@@ -92,7 +92,7 @@ services:
       - internal-services
 
   rekoni:
-    image: haiodo/rekoni-service:${HULY_VERSION}
+    image: intabiafusion/rekoni-service:${PLATFORM_VERSION}
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -114,7 +114,7 @@ services:
       - "traefik.http.routers.rekoni.tls.certresolver=myresolver"
 
   transactor:
-    image: haiodo/transactor:${HULY_VERSION}
+    image: intabiafusion/transactor:${PLATFORM_VERSION}
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -152,7 +152,7 @@ services:
       - "traefik.http.middlewares.strip-transactor-prefix.stripprefix.prefixes=/transactor"
 
   collaborator:
-    image: haiodo/collaborator:${HULY_VERSION}
+    image: intabiafusion/collaborator:${PLATFORM_VERSION}
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -185,7 +185,7 @@ services:
       - "traefik.http.middlewares.strip-collaborator-prefix.stripprefix.prefixes=/collaborator"
 
   account:
-    image: haiodo/account:${HULY_VERSION}
+    image: intabiafusion/account:${PLATFORM_VERSION}
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -208,7 +208,7 @@ services:
       - "traefik.http.routers.account.tls.certresolver=myresolver"
 
   workspace:
-    image: haiodo/workspace:${HULY_VERSION}
+    image: intabiafusion/workspace:${PLATFORM_VERSION}
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -218,7 +218,7 @@ services:
       - internal-services
 
   front:
-    image: haiodo/front:${HULY_VERSION}
+    image: intabiafusion/front:${PLATFORM_VERSION}
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -248,7 +248,7 @@ services:
       - "traefik.http.routers.front.tls.certresolver=myresolver"
 
   fulltext:
-    image: haiodo/fulltext:${HULY_VERSION}
+    image: intabiafusion/fulltext:${PLATFORM_VERSION}
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -259,7 +259,7 @@ services:
       - internal-services
 
   stats:
-    image: haiodo/stats:${HULY_VERSION}
+    image: intabiafusion/stats:${PLATFORM_VERSION}
     restart: unless-stopped
     environment:
       <<: *common-env
