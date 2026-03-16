@@ -43,15 +43,18 @@ sudo nginx -s reload
 sudo docker compose up -d
 ```
 
-Now, launch your web browser and enjoy Huly!
+Now, launch your web browser and enjoy Platform!
 
 > [!IMPORTANT]
 > Provided configrations include deployments of CockroachDB and Redpanda which might not be production-ready.
 > Please inspect them carefully before using in production. For more information on the recommended deployment configurations, please refer to the [CockroachDB](https://www.cockroachlabs.com/docs/stable/recommended-production-settings) and [Redpanda](https://docs.redpanda.com/24.3/deploy/) documentation.
 
+> [!NOTE]
+> **Mail Service**: The default configuration includes Mailpit for email debugging. All emails are captured at http://localhost:8025 but not delivered to real recipients. For production use, configure an external SMTP server or Amazon SES. See the [Mail Service](#mail-service) section below.
+
 ## Volume Configuration
 
-By default, Huly uses Docker named volumes to store persistent data (database, Elasticsearch indices, and uploaded files).
+By default, Platform uses Docker named volumes to store persistent data (database, Elasticsearch indices, and uploaded files).
 You can optionally configure custom host paths for these volumes during the setup process.
 
 ### During Setup
@@ -241,7 +244,7 @@ This configuration is useful for development and testing, but **emails are not d
    mail_server:
      image: intabiafusion/mail:${PLATFORM_VERSION}
      environment:
-       - MODE=server
+       - MODE=queue
        - PORT=8097
        - SOURCE=hello@yourdomain.com
        - SMTP_HOST=smtp.yourdomain.com
@@ -254,7 +257,7 @@ This configuration is useful for development and testing, but **emails are not d
 
 3. The mail URL is already configured in `transactor`, `account`, `workspace`, and `front` services via `MAIL_URL=http://mail_server:8097`.
 
-3. In `Settings -> Notifications`, set up email notifications for the events you want to be notified about. Note that this is a user-specific setting, not company-wide; each user must set up their own notification preferences.
+4. In `Settings -> Notifications`, set up email notifications for the events you want to be notified about. Note that this is a user-specific setting, not company-wide; each user must set up their own notification preferences.
 
 ### SMTP Configuration (Replacing Mailpit)
 
@@ -266,7 +269,7 @@ To send emails to real recipients instead of capturing them in Mailpit, configur
    mail_server:
      ...
      environment:
-       - MODE=server
+       - MODE=queue
        - PORT=8097
        - SOURCE=noreply@yourdomain.com
        - SMTP_HOST=smtp.yourdomain.com
