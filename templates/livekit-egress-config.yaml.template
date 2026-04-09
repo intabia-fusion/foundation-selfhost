@@ -1,0 +1,50 @@
+# LiveKit Egress configuration
+# Generated from template by setup.sh
+
+api_key: ${LIVEKIT_API_KEY}
+api_secret: ${LIVEKIT_API_SECRET}
+
+# Websocket URL for the running LiveKit server
+ws_url: ${LIVEKIT_HOST}
+
+# Allow insecure connections for local development
+insecure: true
+
+# Redis configuration for egress job coordination
+redis:
+  address: redis:6379
+  db: 0
+
+# Logging
+logging:
+  json: false
+  level: info
+
+# HTTP ports
+template_port: 7980
+prometheus_port: 0
+health_port: 0
+debug_handler_port: 0
+
+# Storage configuration: upload to Minio
+storage:
+  s3:
+    endpoint: http://minio:9000
+    access_key: minioadmin
+    secret: minioadmin
+    bucket: livekit-recordings
+    region: us-east-1
+    forcePathStyle: true
+    max_retries: 3
+    min_retry_delay: 500ms
+    max_retry_delay: 5s
+
+# Session limits
+session_limits:
+  file_output_max_duration: 3h
+  stream_output_max_duration: 90m
+  segment_output_max_duration: 3h
+
+# Debug options
+debug:
+  enable_profiling: false

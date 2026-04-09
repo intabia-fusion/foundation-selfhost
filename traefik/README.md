@@ -1,4 +1,4 @@
-# Instructions to deploy Huly on a `self-hosted` server with SSL using `Traefik`
+# Instructions to deploy Platform on a `self-hosted` server with SSL using `Traefik`
 
 ### Prerequisites
 
@@ -10,8 +10,8 @@
 1. Clone the repository
 
    ```bash
-   git clone https://github.com/hcengineering/huly-selfhost.git
-   cd huly-selfhost/traefik
+   git clone https://github.com/hcengineering/platform-selfhost.git
+   cd platform-selfhost/traefik
    ```
 
 2. Run setup.sh
@@ -38,4 +38,4 @@
    docker compose up -d
    ```
 
-6. Access Huly at `https://example.com`
+6. Access Platform at `https://example.com`

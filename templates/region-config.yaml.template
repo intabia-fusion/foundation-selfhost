@@ -1,0 +1,12 @@
+# Region configuration for Platform Platform
+# See docs/region_config.md for format details
+
+regions:
+  '':
+    name: Default
+    transactors:
+      - external: ws://${HOST_ADDRESS}/_transactor
+        internal: ws://transactor:3333
+    collaborators:
+      - external: ws://${HOST_ADDRESS}/_collaborator
+        internal: ws://collaborator:3078

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 
-source ./platform_v7.conf
+source ./config/platform.conf
 docker run -ti \
 -e SERVER_SECRET=${SECRET} \
 -e 

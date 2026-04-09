@@ -1,6 +1,6 @@
 # Gmail Integration Configuration Guide
 
-This guide will walk you through setting up Gmail integration in your self-hosted Huly instance, allowing users to connect their Gmail accounts and manage emails directly within Huly.
+This guide will walk you through setting up Gmail integration in your self-hosted Platform instance, allowing users to connect their Gmail accounts and manage emails directly within Platform.
 
 ## Important Limitations
 
@@ -17,7 +17,7 @@ If you need Gmail integration for a larger user base or public deployment, you'l
 
 ## Prerequisites
 
-- A running Huly self-hosted instance
+- A running Platform self-hosted instance
 - A Google Cloud Platform (GCP) project
 - Administrative access to your domain (if using custom domain)
 
@@ -49,20 +49,20 @@ Enable the following APIs in your GCP project:
 3. If prompted, configure the OAuth consent screen first:
    - Choose "External" for user type
    - Fill in the required fields:
-     - Application name: "Huly Gmail Integration"
+     - Application name: "Platform Gmail Integration"
      - User support email: your email
      - Developer contact email: your email
 
 ### 2.2 Configure OAuth Client
 
 1. Application type: **Web application**
-2. Name: "Huly Gmail Client"
+2. Name: "Platform Gmail Client"
 3. Authorized redirect URIs:
    ```
-   http://your-huly-domain.com:8093/signin/code
-   https://your-huly-domain.com:8093/signin/code
+   http://your-platform-domain.com:8093/signin/code
+   https://your-platform-domain.com:8093/signin/code
    ```
-   Replace `your-huly-domain.com` with your actual domain
+   Replace `your-platform-domain.com` with your actual domain
 
 4. Click "Create" and note down:
    - **Client ID**
@@ -83,18 +83,18 @@ Enable the following APIs in your GCP project:
 2. Set up push notifications to use your Pub/Sub topic
 3. This allows real-time email synchronization
 
-## Step 4: Configure Huly Gmail Service
+## Step 4: Configure Platform Gmail Service
 
 ### 4.1 Gmail Integration Versions
 
 Gmail integration supports two versions with different behaviors:
 
 #### Version 1 (v1) - Default
-- **Shared Email Access**: All emails are shared across the entire Huly instance
+- **Shared Email Access**: All emails are shared across the entire Platform instance
 
 #### Version 2 (v2) - Beta
 - **Space-Specific Emails**: Email access can be configured per workspace/space
-- **Additional Requirements**: Requires enabling 'chat' and 'inbox' modules in Huly
+- **Additional Requirements**: Requires enabling 'chat' and 'inbox' modules in Platform
 - **Beta Status**: Still in development, may have limitations
 
 > [!NOTE]
@@ -118,7 +118,7 @@ gmail:
     - ACCOUNTS_URL=http://account:3000
     - SECRET=${SECRET}
     - WATCH_TOPIC_NAME=projects/YOUR_PROJECT_ID/topics/email
-    - Credentials={"web":{"client_id":"YOUR_CLIENT_ID","client_secret":"YOUR_CLIENT_SECRET","redirect_uris":["http://your-huly-domain.com:8093/signin/code"]}}
+    - Credentials={"web":{"client_id":"YOUR_CLIENT_ID","client_secret":"YOUR_CLIENT_SECRET","redirect_uris":["http://your-platform-domain.com:8093/signin/code"]}}
     - KVS_URL=http://kvs:8094
     - STORAGE_CONFIG=minio|minio?accessKey=minioadmin&secretKey=minioadmin
     - VERSION=v1  # Use v1 (default) or v2 (beta, requires chat/inbox modules)
@@ -133,23 +133,23 @@ Replace the following placeholders with your actual values:
 - `YOUR_PROJECT_ID`: Your Google Cloud Project ID
 - `YOUR_CLIENT_ID`: OAuth 2.0 Client ID from Step 2
 - `YOUR_CLIENT_SECRET`: OAuth 2.0 Client Secret from Step 2
-- `your-huly-domain.com`: Your actual domain name
-- `your_secret_key`: Your Huly secret key
+- `your-platform-domain.com`: Your actual domain name
+- `your_secret_key`: Your Platform secret key
 - `VERSION`: Choose `v1` (default, shared emails) or `v2` (beta, space-specific emails)
 
 ### 4.4 Additional Configuration for Version 2
 
-If using `VERSION=v2`, you must also enable the required modules in your Huly instance:
+If using `VERSION=v2`, you must also enable the required modules in your Platform instance:
 
 1. **Enable Chat Module**: Ensure the chat functionality is activated
 2. **Enable Inbox Module**: Ensure the inbox functionality is activated
 
 > [!WARNING]
-> **Version 2 Requirements**: v2 is in beta and requires both 'chat' and 'inbox' modules to be enabled in your Huly configuration. Without these modules, v2 will not function properly.
+> **Version 2 Requirements**: v2 is in beta and requires both 'chat' and 'inbox' modules to be enabled in your Platform configuration. Without these modules, v2 will not function properly.
 
 ## Step 5: Environment Variables Configuration
 
-Create or update your `huly.conf` file with the following Gmail-related variables:
+Create or update your `platform.conf` file with the following Gmail-related variables:
 
 ```bash
 # Gmail Configuration
@@ -182,7 +182,7 @@ sudo docker logs gmail
 
 ### 6.3 Test OAuth Flow
 
-1. Open Huly in your browser
+1. Open Platform in your browser
 2. Go to Settings > Integrations
 3. Click on Gmail integration
 4. Follow the OAuth flow to connect your Gmail account

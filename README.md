@@ -17,12 +17,12 @@ cd foundation-selfhost
 ./setup.sh
 ```
 
-This will generate a [platform_v7.conf](./platform_v7.conf) file with your chosen values and create your nginx config.
+This will generate a [platform.conf](./platform.conf) file with your chosen values and create your nginx config.
 
 To add the generated configuration to your Nginx setup, run the following:
 
 ```bash
-sudo ln -s $(pwd)/nginx.conf /etc/nginx/sites-enabled/huly.conf
+sudo ln -s $(pwd)/nginx.conf /etc/nginx/sites-enabled/platform.conf
 ```
 
 > [!NOTE]
@@ -70,7 +70,7 @@ When running `./setup.sh`, you'll be prompted to specify custom paths for:
 You can either:
 
 - Press Enter to use the default Docker named volumes
-- Specify an absolute path on your host system (e.g., `/var/huly/db`)
+- Specify an absolute path on your host system (e.g., `/var/platform/db`)
 - Enter `default` to clear an existing custom path and revert to Docker named volumes
 
 ### Quick Reset to Default Volumes
@@ -83,7 +83,7 @@ To quickly reset all volumes back to default Docker named volumes without prompt
 
 ### Manual Configuration
 
-You can also manually configure volume paths by editing the `platform_v7.conf` file:
+You can also manually configure volume paths by editing the `platform.conf` file:
 
 ```bash
 # Docker volume paths - specify custom paths for persistent data storage
@@ -181,7 +181,7 @@ Add the public key into `compose.yaml` in section `services:front:environment`:
 > [!NOTE]
 > In version 0.7.x and later, the `ses` service has been replaced with the `notification` service for web push notifications and the `mail` service for sending emails using SES. The environment variables `SECRET_KEY`, `PUSH_PUBLIC_KEY`, and `PUSH_PRIVATE_KEY` are not required for web push notifications in 0.7.x.
 
-To enable web push notifications in Huly, you need to configure the SES service with the VAPID keys.
+To enable web push notifications in Platform, you need to configure the SES service with the VAPID keys.
 
 ### Step 1: Configure the Transactor Service
 
@@ -211,7 +211,7 @@ ses:
     - PUSH_PRIVATE_KEY=${PUSH_PRIVATE_KEY}
   restart: unless-stopped
   networks:
-    - huly_net
+    - platform_net
 ```
 
 ## Mail Service
@@ -373,19 +373,19 @@ If you're experiencing issues with email delivery, see the [SMTP Troubleshooting
 
 ## Gmail Integration
 
-Huly supports Gmail integration allowing users to connect their Gmail accounts and manage emails directly within the platform.
+Platform supports Gmail integration allowing users to connect their Gmail accounts and manage emails directly within the platform.
 
 For detailed setup instructions, see the [Gmail Configuration Guide](guides/gmail-configuration.md).
 
 ## Love Service (Audio & Video calls)
 
-Huly audio and video calls are created on top of a LiveKit media server. The repository already contains the
+Platform audio and video calls are created on top of a LiveKit media server. The repository already contains the
 `love`, `front`, and `livekit` services; you only need to provide credentials and networking.
 
 1. Run `./setup.sh` and answer **Yes** when prompted about LiveKit. The helper can reuse an existing
    configuration or execute `docker run --rm -it -v "$PWD":/output livekit/generate --local` to mint a new
-   API key and secret, update `livekit.yaml`, and inject the resulting values into `platform_v7.conf`.
-2. When asked for the TURN domain, supply a DNS hostname that resolves to the same IP as your primary Huly domain.
+   API key and secret, update `livekit.yaml`, and inject the resulting values into `platform.conf`.
+2. When asked for the TURN domain, supply a DNS hostname that resolves to the same IP as your primary Platform domain.
    The script suggests `turn.<your-domain>` automatically, but you can override it if you prefer a different
    subdomain. Make sure you create DNS records for both the primary hostname and the TURN hostname, and open these
    ports on your firewall/router:
@@ -424,7 +424,7 @@ Huly audio and video calls are created on top of a LiveKit media server. The rep
        - SECRET=${SECRET}
      restart: unless-stopped
      networks:
-       - huly_net
+       - platform_net
    ```
 
 2. Configure `front` service:
@@ -437,11 +437,11 @@ Huly audio and video calls are created on top of a LiveKit media server. The rep
        ...
    ```
 
-3. Uncomment print section in `.huly.nginx` file and reload nginx
+3. Uncomment print section in `.platform.nginx` file and reload nginx
 
 ## AI Service
 
-Huly provides AI-powered chatbot that provides several services:
+Platform provides AI-powered chatbot that provides several services:
 
 - chat with AI
 - text message translations in the chat
@@ -463,7 +463,7 @@ Huly provides AI-powered chatbot that provides several services:
        - MONGO_URL=mongodb://mongodb:27017
        - STATS_URL=http://stats:4900
        - FIRST_NAME=Bot
-       - LAST_NAME=Huly AI
+       - LAST_NAME=Platform AI
        - PASSWORD=<PASSWORD>
        - OPENAI_API_KEY=<OPENAI_API_KEY>
        - OPENAI_BASE_URL=<OPENAI_BASE_URL>
@@ -471,7 +471,7 @@ Huly provides AI-powered chatbot that provides several services:
        - LOVE_ENDPOINT=http://love:8096
      restart: unless-stopped
      networks:
-       - huly_net
+       - platform_net
    ```
 
 3. Configure `front` service:
@@ -496,11 +496,11 @@ Huly provides AI-powered chatbot that provides several services:
        ...
    ```
 
-5. Uncomment aibot section in `.huly.nginx` file and reload nginx
+5. Uncomment aibot section in `.platform.nginx` file and reload nginx
 
 ## Configure Google Calendar Service
 
-To integrate Google Calendar with Huly, follow these steps:
+To integrate Google Calendar with Platform, follow these steps:
 
 ### Google side
 
@@ -528,26 +528,26 @@ calendar:
     - KVS_URL=http://kvs:8094
   restart: unless-stopped
   networks:
-    - huly_net
+    - platform_net
 ```
 
 ## Configure OpenID Connect (OIDC)
 
-You can configure a Huly instance to authorize users (sign-in/sign-up) using an OpenID Connect identity provider (IdP).
+You can configure a Platform instance to authorize users (sign-in/sign-up) using an OpenID Connect identity provider (IdP).
 
 ### On the IdP side
 
 1. Create a new OpenID application.
 
-   - Use `{huly_account_svc}/auth/openid/callback` as the sign-in redirect URI. The `huly_account_svc` is the hostname for the account service of the deployment, which should be accessible externally from the client/browser side. In the provided example setup, the account service runs on port 3000.
+   - Use `{platform_account_svc}/auth/openid/callback` as the sign-in redirect URI. The `platform_account_svc` is the hostname for the account service of the deployment, which should be accessible externally from the client/browser side. In the provided example setup, the account service runs on port 3000.
 
    **URI Example:**
 
-   - `http://huly.mydomain.com:3000/auth/openid/callback`
+   - `http://platform.mydomain.com:3000/auth/openid/callback`
 
 2. Configure user access to the application as needed.
 
-### On the Huly side
+### On the Platform side
 
 For the account service, set the following environment variables as provided by the IdP:
 
@@ -566,19 +566,19 @@ sign-in/sign-up pages.
 
 ## Configure GitHub OAuth
 
-You can also configure a Huly instance to use GitHub OAuth for user authorization (sign-in/sign-up).
+You can also configure a Platform instance to use GitHub OAuth for user authorization (sign-in/sign-up).
 
 ### On the GitHub side
 
 1. Create a new GitHub OAuth application.
 
-   - Use `{huly_account_svc}/_account/auth/github/callback` as the sign-in redirect URI. The `huly_account_svc` is the hostname for the account service of the deployment, which should be accessible externally from the client/browser side.
+   - Use `{platform_account_svc}/_account/auth/github/callback` as the sign-in redirect URI. The `platform_account_svc` is the hostname for the account service of the deployment, which should be accessible externally from the client/browser side.
 
    **URI Example:**
 
-   - `http://huly.mydomain.com/_account/auth/github/callback`
+   - `http://platform.mydomain.com/_account/auth/github/callback`
 
-### On the Huly side
+### On the Platform side
 
 Specify the following environment variables for the account service:
 
@@ -620,7 +620,7 @@ development tool to create the first account._
 
 ## GitHub Service
 
-Huly provides GitHub integration for bi-directional synchronization of issues, pull requests, comments, and reviews.
+Platform provides GitHub integration for bi-directional synchronization of issues, pull requests, comments, and reviews.
 
 ### Prerequisites
 
@@ -684,7 +684,7 @@ github:
     - BOT_NAME=${yourAppName}[bot]
   restart: unless-stopped
   networks:
-    - huly_net
+    - platform_net
 ```
 
 2. Configure the `front` service:
@@ -699,7 +699,7 @@ github:
    ...
 ```
 
-3. Uncomment the github section in `.huly.nginx` file and reload nginx
+3. Uncomment the github section in `.platform.nginx` file and reload nginx
 
 4. Configure Callback URL and Setup URL (with redirect on update set) to your host: `http${SECURE:+s}://${HOST_ADDRESS}/github`
 

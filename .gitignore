@@ -1,13 +1,26 @@
+# Generated configs (created from templates/ by setup.sh)
+config/
+
+# Data directories (service data)
+data/
+
+# Certs (now in config/)
 letsencrypt/
-traefik/docker-compose.yaml
-nginx.conf
-nginx.conf.bak
-platform.conf
-platform_v7.conf
-.platform.secret
-.cr.secret
-.rp.secret
-.idea
-data
+
+# Legacy certs location
 certs/
+
+# IDE
+.idea
+
+# Self-signed certs
 self_*
+
+# Environment symlink
+.env
+
+# Legacy templates (moved to templates/)
+.template.*
+
+# Traefik generated
+traefik/docker-compose.yaml

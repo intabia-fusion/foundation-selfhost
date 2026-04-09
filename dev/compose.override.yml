@@ -1,0 +1,35 @@
+# Dev mode override: LiveKit runs locally (not in Docker)
+# Used automatically by setup.sh --dev and up.sh when DEV_MODE is enabled
+
+services:
+  # Disable the dockerized LiveKit server (runs locally via dev/run-livekit.sh)
+  livekit:
+    profiles:
+      - disabled
+
+  # Love needs to reach local LiveKit via host.docker.internal
+  love:
+    environment:
+      - PORT=8097
+      - SECRET=${SECRET}
+      - ACCOUNTS_URL=http://account:3000
+      - DB_URL=${CR_DB_URL}
+      - STORAGE_CONFIG=${STORAGE_CONFIG}
+      - STORAGE_PROVIDER_NAME=minio
+      - LIVEKIT_HOST=ws://host.docker.internal:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+      - LIVEKIT_WEBHOOK_API_KEY=whkey
+      - LIVEKIT_WEBHOOK_API_SECRET=whsecret
+      - LIVEKIT_PROJECT=dev-project
+      - BILLING_URL=http://billing:4042
+
+  # Love-agent needs local LiveKit too
+  love-agent:
+    environment:
+      - SERVER_SECRET=${SECRET}
+      - PLATFORM_URL=http://aibot:4011
+      - LIVEKIT_URL=ws://host.docker.internal:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+      - STT_PROVIDER=${LOVE_AGENT_STT_PROVIDER:-stream}

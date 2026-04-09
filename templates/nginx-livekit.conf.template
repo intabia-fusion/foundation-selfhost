@@ -1,10 +1,10 @@
-# Template: Huly LiveKit reverse proxy
+# Template: Platform LiveKit reverse proxy
 server {
     server_name ;
     listen ;
     client_max_body_size 0;
-    ssl_certificate ./certs/fullchain.pem;
-    ssl_certificate_key ./certs/privkey.pem;
+    ssl_certificate ./config/certs/fullchain.pem;
+    ssl_certificate_key ./config/certs/privkey.pem;
 
     location / {
       proxy_http_version 1.1;
