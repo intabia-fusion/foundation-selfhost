@@ -33,7 +33,7 @@ services:
   love-agent:
     environment:
       - SERVER_SECRET=${SECRET}
-      - AGENT_NAME=transcribe-dev
+      - AGENT_NAME=transcribe
       - PLATFORM_URL=http://aibot:4011
       - LIVEKIT_URL=ws://host.docker.internal:7880
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
