@@ -421,12 +421,23 @@ services:
       - ACCOUNTS_URL=http://account:3000
       - DB_URL=${CR_DB_URL}
       - STORAGE_CONFIG=${STORAGE_CONFIG}
-      - STORAGE_PROVIDER_NAME=minio
+      - S3_STORAGE_CONFIG=s3|http://minio:9000?accessKey=minioadmin&secretKey=minioadmin&rootBucket=love-recordings
+      - QUEUE_CONFIG=redpanda:9092
+      - QUEUE_REGION=
+      - STATS_URL=http://stats:4900
       - LIVEKIT_HOST=ws://host.docker.internal:7880
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
-      - BILLING_URL=http://billing:4042
+      - LIVEKIT_WEBHOOK_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_WEBHOOK_API_SECRET=${LIVEKIT_API_SECRET}
       - LIVEKIT_PROJECT='self_prj'
+      - BILLING_URL=http://billing:4042
+      - BILLING_POLL_INTERVAL=15
+      - AGENTS=transcribe
+      - WEBHOOK_URL=http://127.0.0.1:8097/webhook
+      - POLLING_ENABLED=true
+      - POLLING_INTERVAL_MS=30000
+      - PENDING_JOIN_TIMEOUT_MS=60000
     ports:
       - 8097:8097
     restart: unless-stopped
@@ -474,6 +485,7 @@ services:
     image: intabiafusion/love-agent:${PLATFORM_VERSION}
     profiles:
       - livekit
+      - livekit-dev
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     depends_on:
@@ -486,6 +498,7 @@ services:
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
       - STT_PROVIDER=${LOVE_AGENT_STT_PROVIDER:-stream}
+      - AGENT_NAME=transcribe
     restart: unless-stopped
     networks:
       - platform_net

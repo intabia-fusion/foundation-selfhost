@@ -1,12 +1,8 @@
 # Dev mode override: LiveKit runs locally (not in Docker)
-# Used automatically by setup.sh --dev and up.sh when DEV_MODE is enabled
+# Used automatically by up.sh when DEV_MODE is enabled
+# Profile livekit-dev starts love-agent but NOT livekit/livekit-egress
 
 services:
-  # Disable the dockerized LiveKit server (runs locally via dev/run-livekit.sh)
-  livekit:
-    profiles:
-      - disabled
-
   # Love needs to reach local LiveKit via host.docker.internal
   love:
     environment:
@@ -15,21 +11,31 @@ services:
       - ACCOUNTS_URL=http://account:3000
       - DB_URL=${CR_DB_URL}
       - STORAGE_CONFIG=${STORAGE_CONFIG}
-      - STORAGE_PROVIDER_NAME=minio
+      - S3_STORAGE_CONFIG=s3|http://minio:9000?accessKey=minioadmin&secretKey=minioadmin&rootBucket=love-recordings
+      - QUEUE_CONFIG=redpanda:9092
+      - QUEUE_REGION=
+      - STATS_URL=http://stats:4900
       - LIVEKIT_HOST=ws://host.docker.internal:7880
-      - LIVEKIT_API_KEY=devkey
-      - LIVEKIT_API_SECRET=secret
-      - LIVEKIT_WEBHOOK_API_KEY=whkey
-      - LIVEKIT_WEBHOOK_API_SECRET=whsecret
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - LIVEKIT_WEBHOOK_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_WEBHOOK_API_SECRET=${LIVEKIT_API_SECRET}
       - LIVEKIT_PROJECT=dev-project
       - BILLING_URL=http://billing:4042
+      - BILLING_POLL_INTERVAL=15
+      - AGENTS=transcribe-dev
+      - WEBHOOK_URL=http://127.0.0.1:8097/webhook
+      - POLLING_ENABLED=true
+      - POLLING_INTERVAL_MS=30000
+      - PENDING_JOIN_TIMEOUT_MS=60000
 
   # Love-agent needs local LiveKit too
   love-agent:
     environment:
       - SERVER_SECRET=${SECRET}
+      - AGENT_NAME=transcribe-dev
       - PLATFORM_URL=http://aibot:4011
       - LIVEKIT_URL=ws://host.docker.internal:7880
-      - LIVEKIT_API_KEY=devkey
-      - LIVEKIT_API_SECRET=secret
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
       - STT_PROVIDER=${LOVE_AGENT_STT_PROVIDER:-stream}

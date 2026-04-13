@@ -1,6 +1,9 @@
 port: 7880
 bind_addresses:
   - 0.0.0.0
+webhook:
+  urls: ['http://127.0.0.1:8097/webhook']
+  api_key: ${LIVEKIT_API_KEY}
 rtc:
   tcp_port: 7881
   port_range_start: 50000

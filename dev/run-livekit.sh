@@ -6,12 +6,12 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="$SCRIPT_DIR/livekit-config.yaml"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+CONFIG_FILE="$PROJECT_DIR/config/livekit.yaml"
 
 echo "[LiveKit] Starting LiveKit server in development mode..."
 echo "[LiveKit] Config: $CONFIG_FILE"
 echo "[LiveKit] Port: 7880, RTC UDP: 7882, RTC TCP: 7881"
-echo "[LiveKit] API keys: devkey, devkey2"
 echo ""
 
 if [ ! -f "$CONFIG_FILE" ]; then
