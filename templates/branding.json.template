@@ -1,9 +1,9 @@
 {
   "${HOST_ADDRESS}": {
     "key": "${HOST_ADDRESS}",
-    "title": "${TITLE:-Platform Platform}",
-    "defaultLanguage": "${DEFAULT_LANGUAGE:-ru}",
-    "lastNameFirst": "${LAST_NAME_FIRST:-true}",
+    "title": "${TITLE}",
+    "defaultLanguage": "${DEFAULT_LANGUAGE}",
+    "lastNameFirst": "${LAST_NAME_FIRST}",
     "languages": "en,ru,pt,es,zh,fr,de,ja",
     "defaultApplication": "tracker",
     "defaultSpace": "tracker:project:DefaultProject",

@@ -5,8 +5,8 @@ regions:
   '':
     name: Default
     transactors:
-      - external: ws://${HOST_ADDRESS}/_transactor
+      - external: ${WS_PROTOCOL}://${HOST_ADDRESS}/_transactor
         internal: ws://transactor:3333
     collaborators:
-      - external: ws://${HOST_ADDRESS}/_collaborator
+      - external: ${WS_PROTOCOL}://${HOST_ADDRESS}/_collaborator
         internal: ws://collaborator:3078

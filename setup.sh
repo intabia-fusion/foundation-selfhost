@@ -157,14 +157,10 @@ fi
 # Create config directory
 mkdir -p "$CONFIG_DIR"
 
-# Dev mode: set defaults for local development
+# Dev mode: use local LiveKit instead of dockerized
 if [ "$DEV_MODE" == true ]; then
-    echo -e "\033[1;33mDev mode enabled.\033[0m"
-    HOST="${HOST:-localhost}"
-    HTTP_PORT="${HTTP_PORT:-8083}"
-    SSL=""
-    USE_LIVEKIT="true"
-    SILENT=true
+    echo -e "\033[1;33mDev mode: LiveKit will run locally (not in Docker).\033[0m"
+    USE_LIVEKIT="${USE_LIVEKIT:-true}"
 
     # Dev LiveKit: local server with static credentials (devkey/secret)
     _LIVEKIT_API_KEY="devkey"
@@ -511,6 +507,14 @@ export POSTGRES_SECRET=$(cat "$CONFIG_DIR/.postgres.secret")
 export REDPANDA_SECRET=$(cat "$CONFIG_DIR/.rp.secret")
 export HOST_ADDRESS=$_HOST_ADDRESS
 export SECURE=$_SECURE
+# Derived protocol prefixes for envsubst templates
+if [[ -n "$_SECURE" ]]; then
+    export HTTP_PROTOCOL="https"
+    export WS_PROTOCOL="wss"
+else
+    export HTTP_PROTOCOL="http"
+    export WS_PROTOCOL="ws"
+fi
 export HTTP_PORT=$_HTTP_PORT
 export HTTP_BIND=$HTTP_BIND
 export TITLE=${TITLE:-Platform}

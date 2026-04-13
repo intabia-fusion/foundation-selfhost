@@ -150,11 +150,10 @@ For local development on macOS:
 ./dev/run-livekit.sh
 ```
 
-Dev mode sets:
-- Host: `localhost:8083`, no SSL
-- LiveKit: local server with `devkey/secret` on port 7880
-- Silent mode (no prompts)
-- Docker `livekit` container disabled (runs locally via `dev/run-livekit.sh`)
+`--dev` only affects LiveKit:
+- LiveKit runs locally with `devkey/secret` on port 7880 (not in Docker)
+- Dev livekit configs copied to `config/`
+- Everything else (host, port, SSL, volumes) is configured normally via prompts or flags
 
 LiveKit installation on macOS: `brew install livekit`
 
