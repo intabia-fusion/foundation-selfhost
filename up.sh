@@ -66,10 +66,13 @@ fi
 # Source config for DOCKER_NAME and DEV_MODE
 source "$CONFIG_FILE"
 
-# Build docker compose command with dev override if needed
+# Build docker compose command
 DC="docker compose --env-file config/platform.conf"
 if [ "$DEV_MODE" == "true" ] && [ -f "dev/compose.override.yml" ]; then
     DC="docker compose --env-file config/platform.conf -f compose.yml -f dev/compose.override.yml"
+fi
+if [ "$LIVEKIT_ENABLED" == "true" ]; then
+    DC="$DC --profile livekit"
 fi
 
 # Pull images if requested

@@ -68,6 +68,9 @@ DC="docker compose --env-file config/platform.conf"
 if [ "$DEV_MODE" == "true" ] && [ -f "dev/compose.override.yml" ]; then
     DC="docker compose --env-file config/platform.conf -f compose.yml -f dev/compose.override.yml"
 fi
+if [ "$LIVEKIT_ENABLED" == "true" ]; then
+    DC="$DC --profile livekit"
+fi
 
 # Ask if user wants to pull new images
 read -p "Do you want to pull the new Docker images? (y/N): " pull_images

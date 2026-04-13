@@ -472,6 +472,8 @@ services:
 
   love-agent:
     image: intabiafusion/love-agent:${PLATFORM_VERSION}
+    profiles:
+      - livekit
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     depends_on:
@@ -550,6 +552,8 @@ services:
 
   livekit:
     image: livekit/livekit-server:latest
+    profiles:
+      - livekit
     command: --config /etc/livekit.yaml
     depends_on:
       redis:
@@ -681,6 +685,8 @@ services:
 
   livekit-egress:
     image: livekit/egress:latest
+    profiles:
+      - livekit
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     volumes:
