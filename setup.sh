@@ -14,8 +14,12 @@ HOST=""
 LIVEKIT_HOST=""
 HTTP_PORT=""
 SSL=""
+SSL_CERT=""
+SSL_KEY=""
 VERSION=""
 DEV_MODE=false
+PUSH_PUBLIC=""
+PUSH_PRIVATE=""
 
 # Show help
 show_help() {
@@ -29,8 +33,12 @@ OPTIONS:
   --host <address>      Set host address (e.g., localhost or platform.example.com)
   --port <port>         Set HTTP port (default: 80)
   --ssl                 Enable SSL/HTTPS
+  --ssl-cert <path>     Path to SSL certificate (fullchain.pem). Copied to config/certs/
+  --ssl-key <path>      Path to SSL private key (privkey.pem). Copied to config/certs/
   --use-livekit         Enable LiveKit for audio/video calls
   --livekit-host <url>  Set LiveKit server URL (default: ws://<host>/livekit)
+  --push-public-key <k> VAPID public key for web push notifications
+  --push-private-key <k> VAPID private key for web push notifications
   --dev                 Development mode (localhost, LiveKit with devkey, no SSL)
   --version <ver>       Set platform version (e.g., v0.7.357). Fetches latest from GitHub if not set.
   --reset-volumes       Reset volume paths to empty (use Docker named volumes)
@@ -72,6 +80,24 @@ while [[ $# -gt 0 ]]; do
         --ssl)
             SSL="true"
             shift
+            ;;
+        --ssl-cert)
+            SSL_CERT="$2"
+            SSL="true"
+            shift 2
+            ;;
+        --ssl-key)
+            SSL_KEY="$2"
+            SSL="true"
+            shift 2
+            ;;
+        --push-public-key)
+            PUSH_PUBLIC="$2"
+            shift 2
+            ;;
+        --push-private-key)
+            PUSH_PRIVATE="$2"
+            shift 2
             ;;
         --use-livekit)
             USE_LIVEKIT="true"
@@ -453,7 +479,13 @@ fi
 if [[ "$_LIVEKIT_ENABLED" == true ]]; then
     if [[ -n "$LIVEKIT_HOST" ]]; then
         _LIVEKIT_HOST="$LIVEKIT_HOST"
+    elif [[ -n "$_SECURE" ]]; then
+        # SSL: default to wss://lkit.<host> (separate subdomain)
+        LIVEKIT_BASE_HOST="lkit.${HOST_ONLY}"
+        [[ -n "$LIVEKIT_EXTERNAL_PORT" ]] && LIVEKIT_BASE_HOST="${LIVEKIT_BASE_HOST}:${LIVEKIT_EXTERNAL_PORT}"
+        _LIVEKIT_HOST="${LIVEKIT_SCHEME}://${LIVEKIT_BASE_HOST}"
     else
+        # No SSL: default to ws://<host>/livekit (path-based via nginx)
         LIVEKIT_BASE_HOST="$HOST_ONLY"
         [[ -n "$LIVEKIT_EXTERNAL_PORT" ]] && LIVEKIT_BASE_HOST="${LIVEKIT_BASE_HOST}:${LIVEKIT_EXTERNAL_PORT}"
         _LIVEKIT_HOST="${LIVEKIT_SCHEME}://${LIVEKIT_BASE_HOST}/livekit"
@@ -504,6 +536,49 @@ export OPENAI_API_KEY=${OPENAI_API_KEY:-token}
 export OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://localhost:1234/v1/}
 export OPENAI_SUMMARY_MODEL=${OPENAI_SUMMARY_MODEL:-openai/gpt-oss-20b}
 export OPENAI_TRANSLATE_MODEL=${OPENAI_TRANSLATE_MODEL:-openai/gpt-oss-20b}
+# Web Push VAPID keys — generate if not provided and not already configured
+_PUSH_PUBLIC="${PUSH_PUBLIC:-${PUSH_PUBLIC_KEY:-}}"
+_PUSH_PRIVATE="${PUSH_PRIVATE:-${PUSH_PRIVATE_KEY:-}}"
+if [[ -z "$_PUSH_PUBLIC" || -z "$_PUSH_PRIVATE" ]]; then
+    echo "Generating VAPID keys for web push notifications..."
+    VAPID_OUTPUT=$(docker run --rm node:22-alpine sh -c "mkdir /tmp/vapid && cd /tmp/vapid && npm init -y >/dev/null 2>&1 && npm install --silent web-push 2>/dev/null && ./node_modules/.bin/web-push generate-vapid-keys --json" 2>/dev/null) || true
+    if [[ -n "$VAPID_OUTPUT" ]]; then
+        _PUSH_PUBLIC=$(echo "$VAPID_OUTPUT" | grep -o '"publicKey":"[^"]*"' | cut -d'"' -f4)
+        _PUSH_PRIVATE=$(echo "$VAPID_OUTPUT" | grep -o '"privateKey":"[^"]*"' | cut -d'"' -f4)
+        if [[ -n "$_PUSH_PUBLIC" && -n "$_PUSH_PRIVATE" ]]; then
+            echo "VAPID keys generated."
+        else
+            echo -e "\033[1;33mWARNING: Failed to parse VAPID keys. Web push notifications will be disabled.\033[0m"
+        fi
+    else
+        echo -e "\033[1;33mWARNING: Failed to generate VAPID keys (Docker required). Web push notifications will be disabled.\033[0m"
+    fi
+fi
+export PUSH_PUBLIC_KEY=$_PUSH_PUBLIC
+export PUSH_PRIVATE_KEY=$_PUSH_PRIVATE
+
+# Copy SSL certificates if provided
+if [[ -n "$SSL_CERT" || -n "$SSL_KEY" ]]; then
+    mkdir -p "$CONFIG_DIR/certs"
+    if [[ -n "$SSL_CERT" ]]; then
+        if [[ -f "$SSL_CERT" ]]; then
+            cp "$SSL_CERT" "$CONFIG_DIR/certs/fullchain.pem"
+            echo "SSL certificate copied."
+        else
+            echo -e "\033[1;31mERROR: SSL certificate not found: $SSL_CERT\033[0m"
+            exit 1
+        fi
+    fi
+    if [[ -n "$SSL_KEY" ]]; then
+        if [[ -f "$SSL_KEY" ]]; then
+            cp "$SSL_KEY" "$CONFIG_DIR/certs/privkey.pem"
+            echo "SSL private key copied."
+        else
+            echo -e "\033[1;31mERROR: SSL key not found: $SSL_KEY\033[0m"
+            exit 1
+        fi
+    fi
+fi
 
 # Generate platform.conf
 envsubst < templates/platform.conf.template > "$CONFIG_FILE"

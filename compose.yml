@@ -240,6 +240,7 @@ services:
       - DATALAKE_URL=http${SECURE:+s}://${HOST_ADDRESS}/_datalake
       - FILES_URL=http${SECURE:+s}://${HOST_ADDRESS}/_datalake/blob/:workspace/:blobId/:filename
       - LIVEKIT_WS=${LIVEKIT_HOST}
+      - PUSH_PUBLIC_KEY=${PUSH_PUBLIC_KEY:-}
       - AI_URL=http${SECURE:+s}://${HOST_ADDRESS}/_ai
       - BILLING_URL=http${SECURE:+s}://${HOST_ADDRESS}/_billing
       - MAIL_URL=http://mail_server:8097

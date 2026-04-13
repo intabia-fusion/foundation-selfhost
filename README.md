@@ -1,15 +1,15 @@
 # Platform Self-Hosted
 
-Please use this README if you want to deploy Platform on your server with `docker compose`.
+Deploy Platform on your server with `docker compose`.
 
-## Docker based deployment
+## Quick Start
 
-Install docker using the [recommended method](https://docs.docker.com/engine/install/ubuntu/) from docker website.
-Afterwards perform [post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/). Pay attention to 3rd step with `newgrp docker` command, it needed for correct execution in setup script.
+### Prerequisites
 
-## Clone the `foundation-selfhost` repository and configure `nginx`
+- Docker: [Install guide](https://docs.docker.com/engine/install/ubuntu/), then [post-install steps](https://docs.docker.com/engine/install/linux-postinstall/)
+- Nginx (for reverse proxy)
 
-Next, let's clone the `foundation-selfhost` repository and configure Platform.
+### Setup
 
 ```bash
 git clone https://github.com/intabiafusion/foundation-selfhost.git
@@ -17,690 +17,334 @@ cd foundation-selfhost
 ./setup.sh
 ```
 
-This will generate a [platform.conf](./platform.conf) file with your chosen values and create your nginx config.
+The setup script will:
+- Fetch the latest platform version from GitHub
+- Prompt for host address, port, SSL, LiveKit, and volume configuration
+- Generate `config/platform.conf` with all settings
+- Generate secrets (only on first run — never overwritten)
+- Create nginx configuration
 
-To add the generated configuration to your Nginx setup, run the following:
-
-```bash
-sudo ln -s $(pwd)/nginx.conf /etc/nginx/sites-enabled/platform.conf
-```
-
-> [!NOTE]
-> If you change `HOST_ADDRESS`, `SECURE`, `HTTP_PORT` or `HTTP_BIND` be sure to update your [nginx.conf](./nginx.conf)
-> by running:
->
-> ```bash
-> ./nginx.sh
-> ```
->
-> You can safely execute this script after adding your custom configurations like ssl. It will only overwrite the
-> necessary settings.
-
-Finally, let's reload `nginx` and start Platform with `docker compose`.
+### Start Services
 
 ```bash
-sudo nginx -s reload
-sudo docker compose up -d
+./up.sh
 ```
 
-Now, launch your web browser and enjoy Platform!
+### Stop Services
 
-> [!IMPORTANT]
-> Provided configrations include deployments of CockroachDB and Redpanda which might not be production-ready.
-> Please inspect them carefully before using in production. For more information on the recommended deployment configurations, please refer to the [CockroachDB](https://www.cockroachlabs.com/docs/stable/recommended-production-settings) and [Redpanda](https://docs.redpanda.com/24.3/deploy/) documentation.
+```bash
+./down.sh          # Stop services (keep data)
+./cleanup.sh       # Stop services (keep data)
+./cleanup.sh --all # Full reset: remove config, secrets, and data
+```
 
-> [!NOTE]
-> **Mail Service**: The default configuration includes Mailpit for email debugging. All emails are captured at http://localhost:8025 but not delivered to real recipients. For production use, configure an external SMTP server or Amazon SES. See the [Mail Service](#mail-service) section below.
+## Setup Options
+
+```
+./setup.sh [OPTIONS]
+
+  --silent              Non-interactive mode (use defaults or provided values)
+  --dev                 Development mode (localhost, LiveKit with devkey, no SSL)
+  --host <address>      Host address (e.g., localhost or platform.example.com)
+  --port <port>         HTTP port (default: 80)
+  --ssl                 Enable SSL/HTTPS
+  --ssl-cert <path>     Path to SSL certificate (fullchain.pem), copied to config/certs/
+  --ssl-key <path>      Path to SSL private key (privkey.pem), copied to config/certs/
+  --use-livekit         Enable LiveKit for audio/video calls
+  --livekit-host <url>  LiveKit server URL (default: ws://<host>/livekit)
+  --version <ver>       Platform version (e.g., v0.7.357). Fetches latest from GitHub if not set
+  --push-public-key <k> VAPID public key for web push notifications
+  --push-private-key <k> VAPID private key for web push notifications
+  --reset-volumes       Reset volume paths to Docker named volumes
+```
+
+## CI/CD Deployment
+
+### Scenario 1: Update — Deploy New Version (Keep Data)
+
+Use this when updating dev machines to a new platform version without losing data.
+
+```bash
+#!/bin/bash
+# CI: Update devp1.intabia.ru to a new version
+set -e
+
+cd /path/to/foundation-selfhost
+git pull
+
+./setup.sh --silent \
+  --host devp1.intabia.ru \
+  --ssl \
+  --ssl-cert /etc/letsencrypt/live/devp1.intabia.ru/fullchain.pem \
+  --ssl-key /etc/letsencrypt/live/devp1.intabia.ru/privkey.pem \
+  --version v0.7.357 \
+  --use-livekit
+
+./up.sh --pull --recreate
+```
+
+What this does:
+- Updates config with the specified version and settings
+- LiveKit defaults to `wss://lkit.devp1.intabia.ru` (auto-generated from host with SSL)
+- Keeps existing data (Postgres, Elasticsearch, Redpanda, Minio)
+- Keeps existing secrets (never regenerated if files exist)
+- VAPID keys for web push generated automatically on first run
+- Pulls new Docker images and recreates containers
+
+### Scenario 2: Clean Deploy — Fresh Installation
+
+Use this for setting up a new machine or full reset.
+
+```bash
+#!/bin/bash
+# CI: Clean deploy devp1.intabia.ru from scratch
+set -e
+
+cd /path/to/foundation-selfhost
+git pull
+
+# Full cleanup (removes config, secrets, data, volumes, images)
+./cleanup.sh --all || true
+
+./setup.sh --silent \
+  --host devp1.intabia.ru \
+  --ssl \
+  --ssl-cert /etc/letsencrypt/live/devp1.intabia.ru/fullchain.pem \
+  --ssl-key /etc/letsencrypt/live/devp1.intabia.ru/privkey.pem \
+  --version v0.7.357 \
+  --use-livekit
+
+./up.sh --pull
+```
+
+What this does:
+- Removes all existing config, secrets, data, and Docker resources
+- Generates new secrets and VAPID keys
+- LiveKit defaults to `wss://lkit.devp1.intabia.ru`
+- Initializes fresh databases
+- Pulls images and starts services
+
+> **Note:** Replace `devp1` with the actual machine number (`devp2`, `devp3`, etc.). SSL certificates for both `devpN.intabia.ru` and `lkit.devpN.intabia.ru` must be provisioned in advance.
+
+### Key Differences
+
+| | Update (Scenario 1) | Clean (Scenario 2) |
+|---|---|---|
+| Secrets | Kept (files exist) | New (files deleted by cleanup) |
+| VAPID keys | Kept | New |
+| Database | Preserved | Empty |
+| Docker images | Pulled if `--pull` | Pulled |
+| Containers | Recreated if `--recreate` | Created |
+| Config | Regenerated from template | Generated fresh |
+
+> **Note:** Secrets are generated only when their files don't exist (`config/.platform.secret`, `config/.postgres.secret`, `config/.rp.secret`). If data directories exist but secrets are missing, setup.sh will warn about potential mismatches.
+
+## Development Mode
+
+For local development on macOS:
+
+```bash
+./setup.sh --dev
+./up.sh
+# In a separate terminal:
+./dev/run-livekit.sh
+```
+
+Dev mode sets:
+- Host: `localhost:8083`, no SSL
+- LiveKit: local server with `devkey/secret` on port 7880
+- Silent mode (no prompts)
+- Docker `livekit` container disabled (runs locally via `dev/run-livekit.sh`)
+
+LiveKit installation on macOS: `brew install livekit`
+
+## Configuration
+
+All configuration lives in `config/`:
+
+| File | Description |
+|---|---|
+| `config/platform.conf` | Main config (env vars for docker compose) |
+| `config/version.txt` | Platform version |
+| `config/branding.json` | Branding configuration |
+| `config/region-config.yaml` | Region configuration |
+| `config/nginx.conf` | Nginx configuration |
+| `config/livekit.yaml` | LiveKit server config (when enabled) |
+| `config/livekit-egress-config.yaml` | LiveKit Egress config (when enabled) |
+| `config/certs/` | SSL certificates (`fullchain.pem`, `privkey.pem`) |
+| `config/.platform.secret` | Platform secret |
+| `config/.postgres.secret` | PostgreSQL password |
+| `config/.rp.secret` | Redpanda admin password |
+
+### Secrets
+
+Secrets are generated once and never overwritten. If you need to regenerate:
+
+1. Stop services: `./down.sh`
+2. Delete the specific secret file (e.g., `rm config/.platform.secret`)
+3. Run `./setup.sh` again
+
+> **Warning:** If you delete `config/.postgres.secret` or `config/.rp.secret` while data directories exist, the new secrets won't match the stored passwords. Either delete data too (`./cleanup.sh --all`) or manually update the password inside the running service.
 
 ## Volume Configuration
 
-By default, Platform uses Docker named volumes to store persistent data (database, Elasticsearch indices, and uploaded files).
-You can optionally configure custom host paths for these volumes during the setup process.
+By default, data is stored in `./data/` subdirectories. During interactive setup you can:
 
-### During Setup
+- Press Enter for defaults (`./data/<service>`)
+- Enter a custom absolute path
+- Type `none` to use Docker named volumes
 
-When running `./setup.sh`, you'll be prompted to specify custom paths for:
-
-- **Elasticsearch volume**: Search index data storage
-- **Files volume**: User-uploaded files and attachments
-- **CockroachDB data volume**: Data storage for workspaces and accounts
-- **CockroachDB certs volume**: Certificates for CockroachDB
-- **Redpanda data volume**: Data storage for Kafka
-
-You can either:
-
-- Press Enter to use the default Docker named volumes
-- Specify an absolute path on your host system (e.g., `/var/platform/db`)
-- Enter `default` to clear an existing custom path and revert to Docker named volumes
-
-### Quick Reset to Default Volumes
-
-To quickly reset all volumes back to default Docker named volumes without prompts:
+Reset all to Docker named volumes:
 
 ```bash
 ./setup.sh --reset-volumes
 ```
 
-### Manual Configuration
+## Nginx
 
-You can also manually configure volume paths by editing the `platform.conf` file:
-
-```bash
-# Docker volume paths - specify custom paths for persistent data storage
-# Leave empty to use default Docker named volumes
-VOLUME_ELASTIC_PATH=/path/to/elasticsearch
-VOLUME_FILES_PATH=/path/to/files
-VOLUME_CR_DATA_PATH=/path/to/cockroachdb/data
-VOLUME_CR_CERTS_PATH=/path/to/cockroachdb/certs
-VOLUME_REDPANDA_PATH=/path/to/redpanda/data
-```
-
-To revert to default volumes, simply leave the paths empty:
+Setup generates `config/nginx.conf`. Link it to Nginx:
 
 ```bash
-VOLUME_ELASTIC_PATH=
-VOLUME_FILES_PATH=
-VOLUME_CR_DATA_PATH=
-VOLUME_CR_CERTS_PATH=
-VOLUME_REDPANDA_PATH=
+sudo ln -s $(pwd)/config/nginx.conf /etc/nginx/sites-enabled/platform.conf
+sudo nginx -s reload
 ```
 
-After modifying the configuration, restart the services:
+After changing `HOST_ADDRESS`, `SECURE`, `HTTP_PORT`, or `HTTP_BIND`, regenerate nginx config:
 
 ```bash
-docker compose down
-docker compose up -d
-```
-
-> [!WARNING]
-> When changing from named volumes to host paths (or vice versa), make sure to migrate your data appropriately to avoid data loss.
-
-## Redpanda Configuration
-
-When using a production deployment of Redpanda with topics auto-creation turned off, you'll need to manually create the following topics:
-
-- fulltext
-- process
-- tx
-- users
-- workspace
-
-## Generating Public and Private VAPID keys for front-end
-
-You'll need `Node.js` installed on your machine. Installing `npm` on Debian based distro:
-
-```
-sudo apt-get install npm
-```
-
-Install web-push using npm
-
-```bash
-sudo npm install -g web-push
-```
-
-Generate VAPID Keys. Run the following command to generate a VAPID key pair:
-
-```
-web-push generate-vapid-keys
-```
-
-It will generate both keys that looks like this:
-
-```bash
-=======================================
-
-Public Key:
-sdfgsdgsdfgsdfggsdf
-
-Private Key:
-asdfsadfasdfsfd
-
-=======================================
-```
-
-Keep these keys secure, as you will need them to set up your push notification service on the server.
-
-Add these keys into `compose.yaml` in section `services:ses:environment`:
-
-```yaml
-- PUSH_PUBLIC_KEY=your public key
-- PUSH_PRIVATE_KEY=your private key
-```
-
-As the browser must access the public key for web push notifications setup, you also need to provide it to the front-end service.
-
-Add the public key into `compose.yaml` in section `services:front:environment`:
-
-```yaml
-- PUSH_PUBLIC_KEY=your public key
+./nginx.sh
 ```
 
 ## Web Push Notifications
 
-> [!NOTE]
-> In version 0.7.x and later, the `ses` service has been replaced with the `notification` service for web push notifications and the `mail` service for sending emails using SES. The environment variables `SECRET_KEY`, `PUSH_PUBLIC_KEY`, and `PUSH_PRIVATE_KEY` are not required for web push notifications in 0.7.x.
+VAPID keys for browser push notifications are **generated automatically** during `./setup.sh` (via a Docker container with `web-push`). No manual steps needed.
 
-To enable web push notifications in Platform, you need to configure the SES service with the VAPID keys.
+Keys are saved in `config/platform.conf` and reused on subsequent runs.
 
-### Step 1: Configure the Transactor Service
+To provide your own keys instead:
 
-Add `WEB_PUSH_URL` to `transactor` container:
-
-```yaml
-transactor:
-  ...
-  environment:
-    - WEB_PUSH_URL=http://ses:3335
-  ...
+```bash
+./setup.sh --push-public-key "BEl62i..." --push-private-key "IwMHkf..."
 ```
 
-### Step 2: Configure the SES Service
-
-Add the `ses` container to your `docker-compose.yaml` file with the generated VAPID keys:
-
-```yaml
-ses:
-  image: intabiafusion/ses:${PLATFORM_VERSION}
-  environment:
-    - PORT=3335
-    - SOURCE=mail@example.com
-    - ACCESS_KEY=none
-    - SECRET_KEY=none
-    - PUSH_PUBLIC_KEY=${PUSH_PUBLIC_KEY}
-    - PUSH_PRIVATE_KEY=${PUSH_PRIVATE_KEY}
-  restart: unless-stopped
-  networks:
-    - platform_net
-```
+Or edit `config/platform.conf` directly and restart: `./up.sh --recreate`
 
 ## Mail Service
 
-The Mail Service is responsible for sending email notifications and confirmation emails during user login or signup processes. It can be configured to send emails through either an SMTP server or Amazon SES (Simple Email Service), but not both at the same time.
+The default configuration includes **Mailpit** for email debugging:
 
-> [!IMPORTANT]
-> **For normal operation, an SMTP server is required.** The default configuration includes Mailpit for debugging purposes, which captures all outgoing emails but does not deliver them to real recipients.
+- **Mailpit UI**: `http://<host>:8025` (configurable via `MAILPIT_HTTP_PORT` in `config/platform.conf`)
+- **SMTP**: port 1025 (internal, for Platform services)
 
-### Default Configuration (Mailpit for Debugging)
+All emails are captured but **not delivered** to real recipients.
 
-By default, the setup includes **Mailpit** - a lightweight SMTP server that captures all outgoing emails for debugging:
+### Production SMTP
 
-- **Mailpit Web UI**: http://localhost:8025 (view captured emails)
-- **Mailpit SMTP**: localhost:1025 (receives emails from the application)
-- **Mail Service**: http://localhost:8097 (Platform's mail API)
-
-This configuration is useful for development and testing, but **emails are not delivered to real recipients**. For production use, configure an external SMTP server or Amazon SES.
-
-### General Configuration
-
-1. The default `compose.yml` already includes the mail infrastructure:
-   - `mailpit` - SMTP server for capturing emails (port 8025 for UI, 1025 for SMTP)
-   - `mail_server` - Platform mail server (port 8097)
-   - `mail_client` - Platform mail client worker
-
-2. To use your own SMTP server instead of Mailpit, update the `mail_server` environment variables in `compose.yml`:
-
-   ```yaml
-   mail_server:
-     image: intabiafusion/mail:${PLATFORM_VERSION}
-     environment:
-       - MODE=queue
-       - PORT=8097
-       - SOURCE=hello@yourdomain.com
-       - SMTP_HOST=smtp.yourdomain.com
-       - SMTP_PORT=587
-       - SMTP_USERNAME=your_smtp_user
-       - SMTP_PASSWORD=your_smtp_password
-       - SMTP_TLS_MODE=require
-     ...
-   ```
-
-3. The mail URL is already configured in `transactor`, `account`, `workspace`, and `front` services via `MAIL_URL=http://mail_server:8097`.
-
-4. In `Settings -> Notifications`, set up email notifications for the events you want to be notified about. Note that this is a user-specific setting, not company-wide; each user must set up their own notification preferences.
-
-### SMTP Configuration (Replacing Mailpit)
-
-To send emails to real recipients instead of capturing them in Mailpit, configure an external SMTP server:
-
-1. Update the `mail_server` environment variables in `compose.yml`:
-
-   ```yaml
-   mail_server:
-     ...
-     environment:
-       - MODE=queue
-       - PORT=8097
-       - SOURCE=noreply@yourdomain.com
-       - SMTP_HOST=smtp.yourdomain.com
-       - SMTP_PORT=587
-       - SMTP_USERNAME=your_smtp_user
-       - SMTP_PASSWORD=your_smtp_password
-       - SMTP_TLS_MODE=require
-   ```
-
-2. Replace `smtp.yourdomain.com` and `587` with your SMTP server's hostname and port. Common ports:
-   - `587` - SMTP with STARTTLS (recommended)
-   - `465` - SMTPS (SMTP over SSL)
-   - `25` - SMTP (often blocked by ISPs)
-
-3. Replace `your_smtp_user` and `your_smtp_password` with your SMTP credentials. Consider using an application-specific password or API key for security.
-
-4. You can optionally remove or disable the `mailpit` service if you no longer need it for debugging:
-
-   ```yaml
-   # Comment out or remove these services
-   # mailpit:
-   #   ...
-   # mail_client:
-   #   ...
-   ```
-
-   > [!NOTE]
-   > Keep `mail_server` running as it's required for the Platform's mail API.
-
-### Amazon SES Configuration
-
-1. Set up Amazon Simple Email Service in AWS: [AWS SES Setup Guide](https://docs.aws.amazon.com/ses/latest/dg/setting-up.html)
-
-2. Create a new IAM policy with the following permissions:
-
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Action": ["ses:SendEmail", "ses:SendRawEmail"],
-         "Resource": "*"
-       }
-     ]
-   }
-   ```
-
-3. Create a separate IAM user for SES API access, assigning the newly created policy to this user.
-
-4. Configure SES environment variables in the `mail` container:
-
-   ```yaml
-   mail:
-     ...
-     environment:
-       ...
-       - SES_ACCESS_KEY=<SES_ACCESS_KEY>
-       - SES_SECRET_KEY=<SES_SECRET_KEY>
-       - SES_REGION=<SES_REGION>
-   ```
-
-### Verifying Mail Service
-
-To verify that the mail service is running correctly:
-
-```bash
-# Check if the mail containers are running
-sudo docker ps | grep mail
-
-# View mail service logs
-sudo docker logs mail_server
-sudo docker logs mail_client
-
-# View Mailpit logs
-sudo docker logs mailpit
-
-# Follow mail service logs in real-time
-sudo docker logs -f mail_server
-```
-
-### Accessing Mailpit Web Interface
-
-When using the default Mailpit configuration, you can view captured emails:
-
-1. Open http://localhost:8025 in your browser
-2. All emails sent by the application will appear in the Mailpit inbox
-3. Click on an email to view its contents, headers, and HTML/text versions
-4. Use Mailpit's search and filtering features to find specific emails
-
-This is useful for debugging email flows during development without sending real emails.
-
-### Troubleshooting SMTP Issues
-
-If you're experiencing issues with email delivery, see the [SMTP Troubleshooting Guide](guides/smtp-troubleshooting.md) for comprehensive debugging steps and solutions.
-
-### Notes
-
-1. SMTP and SES configurations cannot be used simultaneously.
-2. `SES_URL` is not supported in version v0.6.470 and later, please use `MAIL_URL` instead.
-
-## Gmail Integration
-
-Platform supports Gmail integration allowing users to connect their Gmail accounts and manage emails directly within the platform.
-
-For detailed setup instructions, see the [Gmail Configuration Guide](guides/gmail-configuration.md).
-
-## Love Service (Audio & Video calls)
-
-Platform audio and video calls are created on top of a LiveKit media server. The repository already contains the
-`love`, `front`, and `livekit` services; you only need to provide credentials and networking.
-
-1. Run `./setup.sh` and answer **Yes** when prompted about LiveKit. The helper can reuse an existing
-   configuration or execute `docker run --rm -it -v "$PWD":/output livekit/generate --local` to mint a new
-   API key and secret, update `livekit.yaml`, and inject the resulting values into `platform.conf`.
-2. When asked for the TURN domain, supply a DNS hostname that resolves to the same IP as your primary Platform domain.
-   The script suggests `turn.<your-domain>` automatically, but you can override it if you prefer a different
-   subdomain. Make sure you create DNS records for both the primary hostname and the TURN hostname, and open these
-   ports on your firewall/router:
-
-- `7880/tcp` – LiveKit HTTP/WebSocket API
-- `7881/tcp` – TCP relay
-- `5349/tcp` – TURN over TLS
-- `5349/udp` – TURN over TLS (DTLS/UDP fallback)
-- `3478/tcp` and `3478/udp` – TURN
-- `50000-60000/udp` – media relay range
-
-3. To present your own certificate on port `5349`, drop the PEM-encoded full-chain certificate and private key
-   into `./certs/fullchain.pem` and `./certs/privkey.pem` respectively before starting Docker. Both the `nginx`
-   and `livekit` services mount that directory (read-only), and the generated `livekit.yaml` already points the
-   TURN settings at `/etc/livekit/certs/fullchain.pem` and `/etc/livekit/certs/privkey.pem`.
-4. The `livekit` service now runs with `network_mode: host`. Ensure those ports are free on the host, lock down
-   firewall rules so only trusted networks can reach them, and note that Redis is published on `6379` so LiveKit
-   can talk to it via `127.0.0.1:6379`.
-5. Start `docker compose up -d`. The compose file already propagates the `LIVEKIT_*` variables to both the
-   `love` backend and the `front` web application, while the nginx templates expose `/livekit/` so clients can
-   reach the server via `ws(s)://<your-domain>/livekit`.
-
-## Print Service
-
-1. Add `print` container to the docker-compose.yaml
-
-   ```yaml
-   print:
-     image: intabiafusion/print:${PLATFORM_VERSION}
-     container_name: print
-     ports:
-       - 4005:4005
-     environment:
-       - STORAGE_CONFIG=minio|minio?accessKey=minioadmin&secretKey=minioadmin
-       - STATS_URL=http://stats:4900
-       - SECRET=${SECRET}
-     restart: unless-stopped
-     networks:
-       - platform_net
-   ```
-
-2. Configure `front` service:
-
-   ```yaml
-     front:
-       ...
-       environment:
-         - PRINT_URL=http${SECURE:+s}://${HOST_ADDRESS}/_print
-       ...
-   ```
-
-3. Uncomment print section in `.platform.nginx` file and reload nginx
-
-## AI Service
-
-Platform provides AI-powered chatbot that provides several services:
-
-- chat with AI
-- text message translations in the chat
-- live translations for virtual office voice and video chats
-
-1. Set up OpenAI account
-2. Add `aibot` container to the docker-compose.yaml
-
-   ```yaml
-   aibot:
-     image: intabiafusion/ai-bot:${PLATFORM_VERSION}
-     ports:
-       - 4010:4010
-     environment:
-       - STORAGE_CONFIG=minio|minio?accessKey=minioadmin&secretKey=minioadmin
-       - SERVER_SECRET=${SECRET}
-       - ACCOUNTS_URL=http://account:3000
-       - DB_URL=${CR_DB_URL}
-       - MONGO_URL=mongodb://mongodb:27017
-       - STATS_URL=http://stats:4900
-       - FIRST_NAME=Bot
-       - LAST_NAME=Platform AI
-       - PASSWORD=<PASSWORD>
-       - OPENAI_API_KEY=<OPENAI_API_KEY>
-       - OPENAI_BASE_URL=<OPENAI_BASE_URL>
-       # optional if you use love service
-       - LOVE_ENDPOINT=http://love:8096
-     restart: unless-stopped
-     networks:
-       - platform_net
-   ```
-
-3. Configure `front` service:
-
-   ```yaml
-     front:
-       ...
-       environment:
-         # this should be available outside of the cluster
-         - AI_URL=http${SECURE:+s}://${HOST_ADDRESS}/_aibot
-       ...
-   ```
-
-4. Configure `transactor` service:
-
-   ```yaml
-     transactor:
-       ...
-       environment:
-         # this should be available inside of the cluster
-         - AI_BOT_URL=http://aibot:4010
-       ...
-   ```
-
-5. Uncomment aibot section in `.platform.nginx` file and reload nginx
-
-## Configure Google Calendar Service
-
-To integrate Google Calendar with Platform, follow these steps:
-
-### Google side
-
-1. Set up a Google Cloud project and enable the Google Calendar API in Google Cloud Console.
-2. Create OAuth 2.0 credentials. Use `Web application` as the application type and `https://${HOST_ADDRESS}/_calendar/signin/code` (SET REAL VALUE INSTEAD OF ${HOST_ADDRESS}, https is required!!!) as Authorised redirect URIs. Save your credentials!
-3. Add these scopes `./auth/calendar.calendarlist.readonly` `./auth/userinfo.email` `./auth/calendar.calendars.readonly` `./auth/calendar.events`
-
-### Docker-compose side
-
-Add `calendar` container to the docker-compose.yaml
+To send real emails, update `mail_server` environment in `compose.yml`:
 
 ```yaml
-calendar:
-  image: intabiafusion/calendar:${PLATFORM_VERSION}
-  ports:
-    - 8095:8095
+mail_server:
   environment:
-    - MONGO_URI=mongodb://mongodb:27017
-    - MONGO_DB=%calendar-service
-    - Credentials=<JSON_STRING_CREDENTIALS_FROM_GOOGLE_CONSOLE>
-    - WATCH_URL=https://${HOST_ADDRESS}/_calendar/push
-    - ACCOUNTS_URL=http://account:3000
-    - STATS_URL=http://stats:4900
-    - SECRET=${SECRET}
-    - KVS_URL=http://kvs:8094
-  restart: unless-stopped
-  networks:
-    - platform_net
+    - MODE=queue
+    - SOURCE=noreply@yourdomain.com
+    - SMTP_HOST=smtp.yourdomain.com
+    - SMTP_PORT=587
+    - SMTP_USERNAME=your_smtp_user
+    - SMTP_PASSWORD=your_smtp_password
+    - SMTP_TLS_MODE=require
 ```
 
-## Configure OpenID Connect (OIDC)
+### Amazon SES
 
-You can configure a Platform instance to authorize users (sign-in/sign-up) using an OpenID Connect identity provider (IdP).
+See [AWS SES Setup Guide](https://docs.aws.amazon.com/ses/latest/dg/setting-up.html). Configure:
 
-### On the IdP side
+```yaml
+mail:
+  environment:
+    - SES_ACCESS_KEY=<key>
+    - SES_SECRET_KEY=<secret>
+    - SES_REGION=<region>
+```
 
-1. Create a new OpenID application.
+> SMTP and SES cannot be used simultaneously.
 
-   - Use `{platform_account_svc}/auth/openid/callback` as the sign-in redirect URI. The `platform_account_svc` is the hostname for the account service of the deployment, which should be accessible externally from the client/browser side. In the provided example setup, the account service runs on port 3000.
+## LiveKit (Audio & Video Calls)
 
-   **URI Example:**
+### Production
 
-   - `http://platform.mydomain.com:3000/auth/openid/callback`
+Run `./setup.sh` and enable LiveKit when prompted (or use `--use-livekit`).
 
-2. Configure user access to the application as needed.
+Required firewall ports:
+- `7880/tcp` – LiveKit HTTP/WebSocket API
+- `7881/tcp` – TCP relay
+- `5349/tcp+udp` – TURN over TLS
+- `3478/tcp+udp` – TURN
+- `50000-60000/udp` – Media relay
 
-### On the Platform side
+Place SSL certificates in `config/certs/fullchain.pem` and `config/certs/privkey.pem` (or use `--ssl-cert` / `--ssl-key`).
 
-For the account service, set the following environment variables as provided by the IdP:
+### Development
 
-- OPENID_CLIENT_ID
-- OPENID_CLIENT_SECRET
-- OPENID_ISSUER
+See [Development Mode](#development-mode). LiveKit runs locally, not in Docker.
 
-Ensure you have configured or add the following environment variable to the front service:
+## Other Services
 
-- ACCOUNTS_URL (This should contain the URL of the account service, accessible from the client side.)
+### Print Service
 
-You will need to expose your account service port (e.g. 3000) in your nginx.conf.
+Already included in `compose.yml`. Configure `front` service:
 
-Note: Once all the required environment variables are configured, you will see an additional button on the
-sign-in/sign-up pages.
+```yaml
+front:
+  environment:
+    - PRINT_URL=http${SECURE:+s}://${HOST_ADDRESS}/_print
+```
 
-## Configure GitHub OAuth
+### AI Bot
 
-You can also configure a Platform instance to use GitHub OAuth for user authorization (sign-in/sign-up).
+Already included in `compose.yml`. Requires OpenAI-compatible API. Configure in `config/platform.conf`:
 
-### On the GitHub side
+```
+OPENAI_API_KEY=your_key
+OPENAI_BASE_URL=https://api.openai.com/v1/
+OPENAI_SUMMARY_MODEL=gpt-4
+OPENAI_TRANSLATE_MODEL=gpt-4
+```
 
-1. Create a new GitHub OAuth application.
+### Google Calendar
 
-   - Use `{platform_account_svc}/_account/auth/github/callback` as the sign-in redirect URI. The `platform_account_svc` is the hostname for the account service of the deployment, which should be accessible externally from the client/browser side.
+See [Gmail Configuration Guide](guides/gmail-configuration.md).
 
-   **URI Example:**
+### OpenID Connect (OIDC)
 
-   - `http://platform.mydomain.com/_account/auth/github/callback`
+Set in `account` service environment:
+- `OPENID_CLIENT_ID`
+- `OPENID_CLIENT_SECRET`
+- `OPENID_ISSUER`
 
-### On the Platform side
+Redirect URI: `http${SECURE:+s}://${HOST_ADDRESS}/_accounts/auth/openid/callback`
 
-Specify the following environment variables for the account service:
+### GitHub OAuth
 
+Set in `account` service:
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
 
-Ensure you have configured or add the following environment variable to the front service:
+Redirect URI: `http${SECURE:+s}://${HOST_ADDRESS}/_account/auth/github/callback`
 
-- `ACCOUNTS_URL` (The URL of the account service, accessible from the client side.)
+### Disable Sign-Up
 
-Notes:
+Set `DISABLE_SIGNUP=true` in both `account` and `front` services.
 
-- The `ISSUER` environment variable is not required for GitHub OAuth.
-- Once all the required environment variables are configured, you will see an additional button on the sign-in/sign-up
-  pages.
+## Useful Commands
 
-## Disable Sign-Up
-
-You can disable public sign-ups for a deployment. When configured, sign-ups will only be permitted through an invite
-link to a specific workspace.
-
-To implement this, set the following environment variable for both the front and account services:
-
-```yaml
-account:
-  # ...
-  environment:
-    - DISABLE_SIGNUP=true
-  # ...
-front:
-  # ...
-  environment:
-    - DISABLE_SIGNUP=true
-  # ...
+```bash
+./up.sh                    # Start services
+./up.sh --pull             # Pull latest images and start
+./up.sh --recreate         # Recreate containers
+./up.sh --pull --recreate  # Pull + recreate (for updates)
+./down.sh                  # Stop services
+./cleanup.sh               # Stop services
+./cleanup.sh --all         # Full reset
+./set-version.sh v0.7.400  # Change platform version
+./nginx.sh                 # Regenerate nginx config
 ```
-
-_Note: When setting up a new deployment, either create the initial account before disabling sign-ups or use the
-development tool to create the first account._
-
-## GitHub Service
-
-Platform provides GitHub integration for bi-directional synchronization of issues, pull requests, comments, and reviews.
-
-### Prerequisites
-
-Set up a GitHub Application for your deployment.
-Please refer to [GitHub Apps documentation](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app) for full instructions on how to register your app.
-
-During registration of the GitHub app, the following secrets should be obtained:
-
-- `GITHUB_APPID` - An application ID number (e.g., 123456), which can be found in General/About in the GitHub UI.
-- `GITHUB_CLIENTID` - A client ID, an identifier from the same page (e.g., Iv1.11a1aaa11aa11111).
-- `GITHUB_CLIENT_SECRET` - A client secret that can be generated in the client secrets section of the General GitHub App UI page.
-- `GITHUB_PRIVATE_KEY` - A private key for authentication.
-
-### Configure Permissions
-
-Set the following permissions for the app:
-
-- Commit statuses: _Read and write_
-- Contents: _Read and write_
-- Custom properties: _Read and write_
-- Discussions: _Read and write_
-- Issues: _Read and write_
-- Metadata: _Read-only_
-- Pages: _Read and write_
-- Projects: _Read and write_
-- Pull requests: _Read and write_
-- Webhooks: _Read and write_
-
-### Subscribe to Events
-
-Enable the following event subscriptions:
-
-- Issues
-- Pull request
-- Pull request review
-- Pull request review comment
-- Pull request review thread
-
-### Docker Configuration
-
-1. Add the `github` container to the docker-compose.yaml
-
-```yaml
-github:
-  image: intabiafusion/github:${PLATFORM_VERSION}
-  ports:
-    - 3500:3500
-  environment:
-    - PORT=3500
-    - STORAGE_CONFIG=minio|minio?accessKey=minioadmin&secretKey=minioadmin
-    - SERVER_SECRET=${SECRET}
-    - ACCOUNTS_URL=http://account:3000
-    - STATS_URL=http://stats:4900
-    - APP_ID=${GITHUB_APPID}
-    - CLIENT_ID=${GITHUB_CLIENTID}
-    - CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
-    - PRIVATE_KEY=${GITHUB_PRIVATE_KEY}
-    - COLLABORATOR_URL=ws${SECURE:+s}://${HOST_ADDRESS}/_collaborator
-    - WEBHOOK_SECRET=secret
-    - FRONT_URL=http${SECURE:+s}://${HOST_ADDRESS}
-    - BOT_NAME=${yourAppName}[bot]
-  restart: unless-stopped
-  networks:
-    - platform_net
-```
-
-2. Configure the `front` service:
-
-```yaml
-  front:
-   ...
-   environment:
-    # this should be available outside of the cluster
-    - GITHUB_APP=${GITHUB_APPID}
-    - GITHUB_CLIENTID=${GITHUB_CLIENTID}
-   ...
-```
-
-3. Uncomment the github section in `.platform.nginx` file and reload nginx
-
-4. Configure Callback URL and Setup URL (with redirect on update set) to your host: `http${SECURE:+s}://${HOST_ADDRESS}/github`
-
-5. Configure Webhook URL to `http${SECURE:+s}://${HOST_ADDRESS}/_github` with the secret `secret`
