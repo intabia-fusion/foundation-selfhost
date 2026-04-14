@@ -234,7 +234,6 @@ services:
       - LAST_NAME_FIRST=${LAST_NAME_FIRST:-true}
       - DESKTOP_UPDATES_CHANNEL=${DESKTOP_CHANNEL}
       - DESKTOP_UPDATES_URL=http${SECURE:+s}://${HOST_ADDRESS}/_dist
-      - PULSE_URL=ws${SECURE:+s}://${HOST_ADDRESS}/_pulse
       - STREAM_URL=http${SECURE:+s}://${HOST_ADDRESS}/_stream/recording
       - PREVIEW_URL=http${SECURE:+s}://${HOST_ADDRESS}/_preview
       - DATALAKE_URL=http${SECURE:+s}://${HOST_ADDRESS}/_datalake
@@ -330,23 +329,6 @@ services:
     restart: unless-stopped
     networks:
       - platform_net
-  hulypulse:
-    image: intabiafusion/hulypulse:${PLATFORM_VERSION}
-    depends_on:
-      redis:
-        condition: service_started
-    ports:
-      - 8098:8098
-    environment:
-      - HULY_TOKEN_SECRET=${SECRET}
-      - HULY_REDIS_URLS=redis://redis:6379
-      - HULY_BIND_PORT=8098
-      - HULY_REDIS_MODE=direct
-      # - HULY_BACKEND=memory
-    restart: unless-stopped
-    networks:
-      - platform_net
-
   process-service:
     image: intabiafusion/process:${PLATFORM_VERSION}
     extra_hosts:
