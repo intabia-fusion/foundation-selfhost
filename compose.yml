@@ -82,7 +82,15 @@ services:
     restart: unless-stopped
     networks:
       - platform_net
-
+  elastic-plugins:
+      image: intabiafusion/elastic-plugins:8.19.1-slim
+      command:
+        - sh
+        - -c
+        - |
+          cp -pr /usr/share/elasticsearch/plugins/* /mnt/plugins/
+      volumes:
+        - elastic-plugins:/mnt/plugins
   elastic:
     image: 'elasticsearch:8.19.1'
     command: |
@@ -91,6 +99,10 @@ services:
       /usr/local/bin/docker-entrypoint.sh eswrapper"
     volumes:
       - ${VOLUME_ELASTIC_PATH:-elastic}:/usr/share/elasticsearch/data
+      - elastic-plugins:/usr/share/elasticsearch/plugins
+    depends_on:
+          elastic-plugins:
+            condition: service_completed_successfully
     environment:
       - xpack.security.enabled=false
       - xpack.security.http.ssl.enabled=false
@@ -765,6 +777,7 @@ volumes:
   postgres_data:
   redpanda:
   mailpit:
+  elastic-plugins:
 
 networks:
   platform_net:
