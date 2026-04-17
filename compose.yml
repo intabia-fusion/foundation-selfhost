@@ -59,10 +59,6 @@ services:
           'rpk',
           'cluster',
           'info',
-          '-X',
-          'user=${REDPANDA_ADMIN_USER}',
-          '-X',
-          'pass=${REDPANDA_ADMIN_PWD}',
         ]
       interval: 10s
       timeout: 5s
@@ -96,16 +92,14 @@ services:
     command: |
       /bin/sh -c "./bin/elasticsearch-plugin list | grep -q ingest-attachment || yes | ./bin/elasticsearch-plugin install --silent ingest-attachment;
       ./bin/elasticsearch-plugin list | grep -q analysis-icu || yes | ./bin/elasticsearch-plugin install --silent analysis-icu;
-      /usr/local/bin/docker-entrypoint.sh eswrapper"
+      /usr/local/bin/docker-entrypoint.sh eswrapper -E discovery.type=single-node -E xpack.security.enabled=false"
     volumes:
       - ${VOLUME_ELASTIC_PATH:-elastic}:/usr/share/elasticsearch/data
       - elastic-plugins:/usr/share/elasticsearch/plugins
     depends_on:
-          elastic-plugins:
-            condition: service_completed_successfully
+      elastic-plugins:
+        condition: service_completed_successfully
     environment:
-      - xpack.security.enabled=false
-      - xpack.security.http.ssl.enabled=false
       - ELASTICSEARCH_PORT_NUMBER=9200
       - BITNAMI_DEBUG=true
       - discovery.type=single-node
@@ -521,18 +515,18 @@ services:
     networks:
       - platform_net
 
-  # desktop-dist:
-  #   image: intabiafusion/desktop-distro:${PLATFORM_VERSION}
-  #   platform: linux/amd64
-  #   extra_hosts:
-  #     - 'host.docker.internal:host-gateway'
-  #   ports:
-  #     - 4409:4409
-  #   environment:
-  #     - PORT=4409
-  #   restart: unless-stopped
-  #   networks:
-  #     - platform_net
+#  desktop-dist:
+#    image: intabiafusion/desktop-distro:${PLATFORM_VERSION}
+#    platform: linux/amd64
+#    extra_hosts:
+#      - 'host.docker.internal:host-gateway'
+#    ports:
+#      - 4409:4409
+#    environment:
+#      - PORT=4409
+#    restart: unless-stopped
+#    networks:
+#      - platform_net
 
   notifications:
     image: intabiafusion/notifications:${PLATFORM_VERSION}
@@ -552,6 +546,7 @@ services:
       - STORAGE_CONFIG=${STORAGE_CONFIG}
       - QUEUE_CONFIG=redpanda:9092
       - QUEUE_REGION=
+      - FRONT_URL=http${SECURE:+s}://${HOST_ADDRESS}
       - STATS_URL=http://stats:4900
     restart: unless-stopped
     networks:

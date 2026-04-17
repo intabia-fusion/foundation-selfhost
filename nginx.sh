@@ -3,6 +3,48 @@
 CONFIG_DIR="config"
 NGINX_CONF="$CONFIG_DIR/nginx.conf"
 
+# Parse command line arguments
+SSL_CERT=""
+SSL_KEY=""
+LINK=false
+RELOAD=false
+RECREATE=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --ssl-cert)
+            SSL_CERT="$2"
+            shift 2
+            ;;
+        --ssl-key)
+            SSL_KEY="$2"
+            shift 2
+            ;;
+        --link)
+            LINK=true
+            shift
+            ;;
+        --reload)
+            RELOAD=true
+            shift
+            ;;
+        --recreate)
+            RECREATE=true
+            shift
+            ;;
+        --auto)
+            LINK=true
+            RELOAD=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--ssl-cert <path>] [--ssl-key <path>] [--link] [--reload] [--recreate] [--auto]"
+            exit 1
+            ;;
+    esac
+done
+
 if [ -f "$CONFIG_DIR/platform.conf" ]; then
     source "$CONFIG_DIR/platform.conf"
 else
@@ -12,12 +54,6 @@ fi
 
 # Create config directory if it doesn't exist
 mkdir -p "$CONFIG_DIR"
-
-# Check for --recreate flag
-RECREATE=false
-if [ "$1" == "--recreate" ]; then
-    RECREATE=true
-fi
 
 # Handle nginx.conf recreation or updating
 TEMPLATE_FILE="templates/nginx.conf.template"
@@ -121,13 +157,66 @@ fi
 # Clean up .bak file
 rm -f "$NGINX_CONF.bak"
 
-read -p "Do you want to run 'nginx -s reload' now to load your updated Platform config? (Y/n): " RUN_NGINX
-case "${RUN_NGINX:-Y}" in  
-    [Yy]* )  
-        echo -e "\033[1;32mRunning 'nginx -s reload' now...\033[0m"
-        sudo nginx -s reload
-        ;;
-    [Nn]* )
-        echo "You can run 'nginx -s reload' later to load your updated Platform config."
-        ;;
-esac
+# Update SSL certificate paths if provided
+if [[ -n "$SSL_CERT" && -n "$SSL_KEY" ]]; then
+    if [[ -f "$SSL_CERT" && -f "$SSL_KEY" ]]; then
+        # Replace paths in nginx.conf with provided absolute paths
+        sed -i.bak "s|ssl_certificate .*;|ssl_certificate $SSL_CERT;|" "$NGINX_CONF"
+        sed -i.bak "s|ssl_certificate_key .*;|ssl_certificate_key $SSL_KEY;|" "$NGINX_CONF"
+        echo "SSL certificate paths updated to:"
+        echo "  ssl_certificate $SSL_CERT;"
+        echo "  ssl_certificate_key $SSL_KEY;"
+        rm -f "$NGINX_CONF.bak"
+    else
+        echo -e "\033[1;31mERROR: SSL certificate or key not found: $SSL_CERT, $SSL_KEY\033[0m"
+        exit 1
+    fi
+elif [[ -n "$SSL_CERT" || -n "$SSL_KEY" ]]; then
+    echo -e "\033[1;33mWARNING: Both --ssl-cert and --ssl-key must be provided to update paths. Keeping default paths.\033[0m"
+fi
+
+# Create symlink if requested
+if [[ "$LINK" == true ]]; then
+    SITES_ENABLED_DIR="/etc/nginx/sites-enabled"
+    SYMLINK_PATH="$SITES_ENABLED_DIR/platform.conf"
+    ABS_NGINX_CONF="$(realpath "$NGINX_CONF")"
+    
+    if [[ ! -d "$SITES_ENABLED_DIR" ]]; then
+        echo -e "\033[1;33mWARNING: Directory $SITES_ENABLED_DIR does not exist. Skipping symlink creation.\033[0m"
+    else
+        if [[ -L "$SYMLINK_PATH" ]]; then
+            CURRENT_LINK="$(readlink -f "$SYMLINK_PATH" 2>/dev/null || echo "")"
+            if [[ "$CURRENT_LINK" == "$ABS_NGINX_CONF" ]]; then
+                echo "Symlink $SYMLINK_PATH already points to $ABS_NGINX_CONF"
+            else
+                echo "Updating symlink $SYMLINK_PATH to point to $ABS_NGINX_CONF"
+                sudo ln -sf "$ABS_NGINX_CONF" "$SYMLINK_PATH"
+            fi
+        else
+            if [[ -f "$SYMLINK_PATH" ]]; then
+                echo -e "\033[1;33mWARNING: $SYMLINK_PATH exists and is not a symlink. Skipping to avoid overwriting.\033[0m"
+            else
+                echo "Creating symlink $SYMLINK_PATH -> $ABS_NGINX_CONF"
+                sudo ln -s "$ABS_NGINX_CONF" "$SYMLINK_PATH"
+            fi
+        fi
+    fi
+fi
+
+# Reload nginx if requested
+if [[ "$RELOAD" == true ]]; then
+    echo -e "\033[1;32mRunning 'sudo nginx -s reload'...\033[0m"
+    sudo nginx -s reload
+else
+    # Interactive prompt only if not in auto/reload mode
+    read -p "Do you want to run 'nginx -s reload' now to load your updated Platform config? (Y/n): " RUN_NGINX
+    case "${RUN_NGINX:-Y}" in  
+        [Yy]* )  
+            echo -e "\033[1;32mRunning 'nginx -s reload' now...\033[0m"
+            sudo nginx -s reload
+            ;;
+        [Nn]* )
+            echo "You can run 'nginx -s reload' later to load your updated Platform config."
+            ;;
+    esac
+fi

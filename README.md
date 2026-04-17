@@ -201,18 +201,43 @@ Reset all to Docker named volumes:
 
 ## Nginx
 
-Setup generates `config/nginx.conf`. Link it to Nginx:
+Setup generates `config/nginx.conf`. To activate it, link the configuration to nginx's sites-enabled directory:
 
 ```bash
 sudo ln -s $(pwd)/config/nginx.conf /etc/nginx/sites-enabled/platform.conf
 sudo nginx -s reload
 ```
 
+Alternatively, use the `nginx.sh` script with the `--link` and `--reload` flags to automate this process.
+
+### Updating nginx configuration
+
 After changing `HOST_ADDRESS`, `SECURE`, `HTTP_PORT`, or `HTTP_BIND`, regenerate nginx config:
 
 ```bash
 ./nginx.sh
 ```
+
+The script supports several options:
+
+- `--ssl-cert <path>` – copy an SSL certificate to `config/certs/fullchain.pem` (for LiveKit) and update nginx configuration to use this path directly
+- `--ssl-key <path>` – copy an SSL private key to `config/certs/privkey.pem` (for LiveKit) and update nginx configuration to use this path directly
+- `--link` – create or update the symlink `/etc/nginx/sites-enabled/platform.conf`
+- `--reload` – automatically run `sudo nginx -s reload` without prompting
+- `--auto` – equivalent to `--link --reload`
+- `--recreate` – regenerate `nginx.conf` from the template
+
+When `--ssl-cert` and `--ssl-key` are provided, nginx will reference the original certificate files directly (e.g., Let's Encrypt paths). The files are also copied to `config/certs/` for LiveKit compatibility.
+
+Example for CI/CD:
+
+```bash
+./nginx.sh --ssl-cert /etc/letsencrypt/live/platform-dev1.intabia.ru/fullchain.pem \
+           --ssl-key /etc/letsencrypt/live/platform-dev1.intabia.ru/privkey.pem \
+           --auto
+```
+
+This updates the configuration, copies the certificates (for LiveKit), creates the symlink, and reloads nginx in one step.
 
 ## Web Push Notifications
 
@@ -280,7 +305,7 @@ Required firewall ports:
 - `3478/tcp+udp` – TURN
 - `50000-60000/udp` – Media relay
 
-Place SSL certificates in `config/certs/fullchain.pem` and `config/certs/privkey.pem` (or use `--ssl-cert` / `--ssl-key`).
+SSL certificates are copied to `config/certs/fullchain.pem` and `config/certs/privkey.pem` (when using `--ssl-cert` / `--ssl-key`). LiveKit uses these copies; nginx can reference the original Let's Encrypt paths directly.
 
 ### Development
 

@@ -31,7 +31,7 @@ Setup script for Platform.
 OPTIONS:
   --silent              Run without interactive prompts (use defaults or provided values)
   --host <address>      Set host address (e.g., localhost or platform.example.com)
-  --port <port>         Set HTTP port (default: 80)
+  --port <port>         Set HTTP port (default: 8080)
   --ssl                 Enable SSL/HTTPS
   --ssl-cert <path>     Path to SSL certificate (fullchain.pem). Copied to config/certs/
   --ssl-key <path>      Path to SSL private key (privkey.pem). Copied to config/certs/
@@ -55,7 +55,7 @@ EXAMPLES:
 
 DEFAULT VALUES (in silent mode):
   Host:         localhost
-  Port:         80
+  Port:         8080
   SSL:          disabled
   LiveKit:      disabled
   Data paths:   ./data/<service>
@@ -333,16 +333,16 @@ PREV_LIVEKIT_TURN_DOMAIN="${LIVEKIT_TURN_DOMAIN}"
 if [ "$SILENT" == true ]; then
     # Silent mode - use defaults or provided values
     _HOST_ADDRESS="${HOST:-${HOST_ADDRESS:-localhost}}"
-    _HTTP_PORT="${HTTP_PORT:-${HTTP_PORT:-80}}"
+    _HTTP_PORT="${HTTP_PORT:-${HTTP_PORT:-8080}}"
     _SECURE="${SSL:-${SECURE:-}}"
     _LIVEKIT_ENABLED="${USE_LIVEKIT:-false}"
 
     # Default volume paths
-    _VOLUME_ELASTIC_PATH="./data/elastic"
-    _VOLUME_FILES_PATH="./data/minio"
-    _VOLUME_POSTGRES_DATA_PATH="./data/postgres"
-    _VOLUME_REDPANDA_PATH="./data/redpanda"
-    _VOLUME_MAILPIT_PATH="./data/mailpit"
+    _VOLUME_ELASTIC_PATH=
+    _VOLUME_FILES_PATH=
+    _VOLUME_POSTGRES_DATA_PATH=
+    _VOLUME_REDPANDA_PATH=
+    _VOLUME_MAILPIT_PATH=
 
     echo "Silent mode enabled. Using defaults:"
     echo "  Host: $_HOST_ADDRESS"
@@ -383,10 +383,10 @@ else
             prompt_value="${HTTP_PORT}"
         else
             prompt_type="default"
-            prompt_value="80"
+            prompt_value="8080"
         fi
         read -p "Enter the port for HTTP [${prompt_type}: ${prompt_value}]: " input
-        _HTTP_PORT="${input:-${HTTP_PORT:-80}}"
+        _HTTP_PORT="${input:-${HTTP_PORT:-8080}}"
         if [[ "$_HTTP_PORT" =~ ^[0-9]+$ && "$_HTTP_PORT" -ge 1 && "$_HTTP_PORT" -le 65535 ]]; then
             break
         else
@@ -423,11 +423,11 @@ else
     echo "Data will be stored in ./data/ subdirectories by default."
     echo "Enter a custom path, or press Enter to use the default, or type 'none' for Docker named volumes."
 
-    DEFAULT_ELASTIC_PATH="./data/elastic"
-    DEFAULT_FILES_PATH="./data/minio"
-    DEFAULT_POSTGRES_PATH="./data/postgres"
-    DEFAULT_REDPANDA_PATH="./data/redpanda"
-    DEFAULT_MAILPIT_PATH="./data/mailpit"
+    DEFAULT_ELASTIC_PATH=
+    DEFAULT_FILES_PATH=
+    DEFAULT_POSTGRES_PATH=
+    DEFAULT_REDPANDA_PATH=
+    DEFAULT_MAILPIT_PATH=
 
     # Elasticsearch
     if [[ -n "$VOLUME_ELASTIC_PATH" ]]; then current="$VOLUME_ELASTIC_PATH"; else current="$DEFAULT_ELASTIC_PATH"; fi
@@ -561,12 +561,8 @@ fi
 # Calculate derived values
 HOST_ONLY="${_HOST_ADDRESS%%:*}"
 if [[ -n "$_SECURE" ]]; then
-    LIVEKIT_EXTERNAL_PORT="${_HTTP_PORT:-443}"
-    [[ "$LIVEKIT_EXTERNAL_PORT" == "443" ]] && LIVEKIT_EXTERNAL_PORT=""
     LIVEKIT_SCHEME="wss"
 else
-    LIVEKIT_EXTERNAL_PORT="${_HTTP_PORT:-80}"
-    [[ "$LIVEKIT_EXTERNAL_PORT" == "80" ]] && LIVEKIT_EXTERNAL_PORT=""
     LIVEKIT_SCHEME="ws"
 fi
 
@@ -576,12 +572,10 @@ if [[ "$_LIVEKIT_ENABLED" == true ]]; then
     elif [[ -n "$_SECURE" ]]; then
         # SSL: default to wss://lkit.<host> (separate subdomain)
         LIVEKIT_BASE_HOST="lkit.${HOST_ONLY}"
-        [[ -n "$LIVEKIT_EXTERNAL_PORT" ]] && LIVEKIT_BASE_HOST="${LIVEKIT_BASE_HOST}:${LIVEKIT_EXTERNAL_PORT}"
-        _LIVEKIT_HOST="${LIVEKIT_SCHEME}://${LIVEKIT_BASE_HOST}"
+        _LIVEKIT_HOST="${LIVEKIT_SCHEME}://${LIVEKIT_BASE_HOST}/livekit"
     else
         # No SSL: default to ws://<host>/livekit (path-based via nginx)
         LIVEKIT_BASE_HOST="$HOST_ONLY"
-        [[ -n "$LIVEKIT_EXTERNAL_PORT" ]] && LIVEKIT_BASE_HOST="${LIVEKIT_BASE_HOST}:${LIVEKIT_EXTERNAL_PORT}"
         _LIVEKIT_HOST="${LIVEKIT_SCHEME}://${LIVEKIT_BASE_HOST}/livekit"
     fi
     LIVEKIT_TURN_DOMAIN="${HOST_ONLY}"
@@ -704,6 +698,12 @@ mkdir -p data/postgres data/minio data/elastic data/redpanda data/mailpit
 mkdir -p data/print data/analytics data/export data/time-machine data/livekit-egress
 mkdir -p data/link-preview data/activity data/notification
 
+# Fix permissions for Elasticsearch data directory (if using local path)
+if [[ -n "$VOLUME_ELASTIC_PATH" && "$VOLUME_ELASTIC_PATH" =~ ^\./ ]]; then
+    echo "Setting permissions for Elasticsearch data directory..."
+    sudo chown -R 1000:1000 "$VOLUME_ELASTIC_PATH"
+fi
+
 # Generate configs from templates
 if [[ -f templates/branding.json.template ]]; then
     envsubst < templates/branding.json.template > "$CONFIG_DIR/branding.json"
@@ -738,7 +738,17 @@ fi
 
 # Run nginx.sh
 echo -e "\033[1;32mSetup complete! Generating nginx.conf...\033[0m"
-./nginx.sh
+NGINX_CMD="./nginx.sh --link"
+if [[ -n "$SSL_CERT" ]]; then
+    NGINX_CMD="$NGINX_CMD --ssl-cert \"$SSL_CERT\""
+fi
+if [[ -n "$SSL_KEY" ]]; then
+    NGINX_CMD="$NGINX_CMD --ssl-key \"$SSL_KEY\""
+fi
+if [[ "$SILENT" == true ]]; then
+    NGINX_CMD="$NGINX_CMD --reload"
+fi
+eval $NGINX_CMD
 
 # Ask to start services (unless in silent mode)
 if [ "$SILENT" == false ]; then
