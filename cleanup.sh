@@ -5,7 +5,9 @@
 # Options:
 #   --volumes    Also remove Docker volumes (WARNING: this will delete all data!)
 #   --images     Also remove Docker images
+#   --configs    Also remove generated configs
 #   --all        Remove volumes, images, and generated configs
+#   -y, --yes    Skip confirmation prompts
 #   --help       Show this help message
 
 set -e
@@ -13,12 +15,16 @@ set -e
 REMOVE_VOLUMES=false
 REMOVE_IMAGES=false
 REMOVE_CONFIGS=false
+SKIP_CONFIRM=false
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
         --volumes)
             REMOVE_VOLUMES=true
+            ;;
+        --configs)
+            REMOVE_CONFIGS=true
             ;;
         --images)
             REMOVE_IMAGES=true
@@ -28,19 +34,25 @@ for arg in "$@"; do
             REMOVE_IMAGES=true
             REMOVE_CONFIGS=true
             ;;
+        -y|--yes)
+            SKIP_CONFIRM=true
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --volumes    Remove Docker volumes (WARNING: deletes all data!)"
             echo "  --images     Remove Docker images"
+            echo "  --configs    Remove generated configs"
             echo "  --all        Remove volumes, images, and generated configs"
+            echo "  -y, --yes    Skip confirmation prompts"
             echo "  --help       Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0                    Stop all services (keep data)"
             echo "  $0 --volumes          Stop and remove all data"
             echo "  $0 --all              Complete cleanup (factory reset)"
+            echo "  $0 --all -y           Complete cleanup without confirmation"
             exit 0
             ;;
         *)
@@ -53,11 +65,15 @@ done
 
 # Confirmation for destructive operations
 if [ "$REMOVE_VOLUMES" == true ] || [ "$REMOVE_CONFIGS" == true ]; then
-    echo -e "\033[1;31mWARNING: This will delete all data!\033[0m"
-    read -p "Are you sure you want to continue? (type 'yes' to confirm): " confirm
-    if [ "$confirm" != "yes" ]; then
-        echo "Aborted."
-        exit 0
+    if [ "$SKIP_CONFIRM" == false ]; then
+        echo -e "\033[1;31mWARNING: This will delete all data!\033[0m"
+        read -p "Are you sure you want to continue? (type 'yes' to confirm): " confirm
+        if [ "$confirm" != "yes" ]; then
+            echo "Aborted."
+            exit 0
+        fi
+    else
+        echo -e "\033[1;33mSkipping confirmation (--yes flag provided)\033[0m"
     fi
 fi
 
