@@ -79,7 +79,7 @@ services:
     networks:
       - platform_net
   elastic-plugins:
-      image: intabiafusion/elastic-plugins:8.19.1-slim
+      image: docker.io/intabiafusion/elastic-plugins:8.19.1-slim
       command:
         - sh
         - -c
@@ -754,7 +754,7 @@ services:
     networks:
       - platform_net
   oaitt:
-    image: intabiafusion/oaitt:v1.0.0
+    image: docker.io/intabiafusion/oaitt:v1.0.0
     environment:
       - PORT=9007
       - ASR_ENGINE=gigaam
