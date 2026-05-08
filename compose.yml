@@ -13,6 +13,7 @@ services:
       - transactor
       - front
       - stats
+      - tbank-subscriptions
     networks:
       - platform_net
 
@@ -248,6 +249,7 @@ services:
       - PUSH_PUBLIC_KEY=${PUSH_PUBLIC_KEY:-}
       - AI_URL=http${SECURE:+s}://${HOST_ADDRESS}/_ai
       - BILLING_URL=http${SECURE:+s}://${HOST_ADDRESS}/_billing
+      - PAYMENT_URL=http${SECURE:+s}://${HOST_ADDRESS}/_payment
       - MAIL_URL=http://mail_server:8097
     restart: unless-stopped
     networks:
@@ -348,6 +350,52 @@ services:
       - SECRET=secret
       - ACCOUNTS_URL=http://account:3000
       - QUEUE_CONFIG=redpanda:9092
+    restart: unless-stopped
+    networks:
+      - platform_net
+
+  payment:
+    image: intabiafusion/payment:${PLATFORM_VERSION}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      account:
+        condition: service_started
+    environment:
+      - SECRET=${SECRET}
+      - PORT=4040
+      - ACCOUNTS_URL=http://account:3000
+      - FRONT_URL=http${SECURE:+s}://${HOST_ADDRESS}
+      - USE_SANDBOX=false
+      - TBANK_SUBSCRIPTIONS_URL=http://tbank-subscriptions:4042
+      # Polar configuration (uncomment if using Polar)
+      # - POLAR_ACCESS_TOKEN=${POLAR_ACCESS_TOKEN}
+      # - POLAR_WEBHOOK_SECRET=${POLAR_WEBHOOK_SECRET}
+      # - POLAR_SUBSCRIPTION_PLANS=${POLAR_SUBSCRIPTION_PLANS}
+      # Stripe configuration (uncomment if using Stripe)
+      # - STRIPE_API_KEY=${STRIPE_API_KEY}
+      # - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      # - STRIPE_SUBSCRIPTION_PLANS=${STRIPE_SUBSCRIPTION_PLANS}
+      # - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+    restart: unless-stopped
+    networks:
+      - platform_net
+  tbank-subscriptions:
+    image: intabiafusion/tbank-subscriptions:${PLATFORM_VERSION}
+    depends_on:
+      account:
+        condition: service_started
+    environment:
+      - SECRET=${SECRET}
+      - PORT=4042
+      - ACCOUNTS_URL=http://account:3000
+      - FRONT_URL=http${SECURE:+s}://${HOST_ADDRESS}
+      - TBANK_TERMINAL_KEY=test_key
+      - TBANK_PASSWORD=test_key
+      - TBANK_URL=https://securepay.tinkoff.ru
+      - TBANK_SUBSCRIPTION_PLANS=start@tier:29900;standard@tier:59900;business@tier:99900
+      - SCHEDULER_INTERVAL_MINUTES=${TBANK_SCHEDULER_INTERVAL_MINUTES:-60}
+      # - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
     restart: unless-stopped
     networks:
       - platform_net
