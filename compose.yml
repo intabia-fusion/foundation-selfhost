@@ -182,6 +182,7 @@ services:
       - SERVER_PORT=3000
       - SERVER_SECRET=${SECRET}
       - ADMIN_EMAILS=${PLATFORM_ADMIN_EMAILS}
+      - FREE_PLAN_LIMITS={"usersLimit":5,"storagePerUserGB":2,"projectsLimit":3,"tokenLimit":100000,"trafficLimitGB":0,"meetingMinutesLimit":0}
       - DB_URL=${CR_DB_URL}
       - TRANSACTOR_URL=ws://transactor:3333;ws${SECURE:+s}://${HOST_ADDRESS}/_transactor
       - STORAGE_CONFIG=${STORAGE_CONFIG}
@@ -373,6 +374,8 @@ services:
       - USE_SANDBOX=false
       - PROVIDER=tbank
       - PLAN_CONFIG=/var/cfg/plan-config.yaml
+      - QUEUE_CONFIG=redpanda:9092
+      - QUEUE_REGION=
       - TBANK_SUBSCRIPTIONS_URL=http://tbank-subscriptions:4042
       # Polar configuration (uncomment if using Polar)
       # - POLAR_ACCESS_TOKEN=${POLAR_ACCESS_TOKEN}
@@ -394,6 +397,8 @@ services:
     environment:
       - SECRET=${SECRET}
       - PORT=4042
+      - QUEUE_CONFIG=redpanda:9092
+      - QUEUE_REGION=
       - ACCOUNTS_URL=http://account:3000
       - FRONT_URL=http${SECURE:+s}://${HOST_ADDRESS}
       - TBANK_TERMINAL_KEY=test_key
