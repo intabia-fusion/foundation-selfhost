@@ -176,6 +176,7 @@ All configuration lives in `config/`:
 | `config/.platform.secret` | Platform secret |
 | `config/.postgres.secret` | PostgreSQL password |
 | `config/.rp.secret` | Redpanda admin password |
+| `config/.admin.secret` | Technical admin password (created on first backup import) |
 
 ### Secrets
 
@@ -372,23 +373,27 @@ The easiest way is the interactive wizard:
 ./import-from-huly.sh
 ```
 
-It will ask, step by step, for:
+It will ask, step by step, for just two things:
 
 1. **Backup URL** and **token** - copy both from your Huly workspace under
    `Settings -> Backup -> Backup Files` (`Copy to clipboard` buttons).
 2. **Workspace name** - any readable name for the new local workspace.
-3. **Owner email** - an existing local user (sign up in the UI first).
+
+You do **not** create any user. The original users from the backup are recreated
+automatically and assigned to the workspace.
 
 > [!NOTE]
-> The owner account must exist before importing. Sign up at `http://<host>` first.
-> All confirmation emails (OTP) are delivered locally to **Mailpit** at
-> `http://<host>:8025`, not to the real internet.
+> Users sign in by email. In the demo setup the login code (OTP) is captured by
+> **Mailpit** at `http://<host>:8025`. For production you must configure a real
+> SMTP server (see [Production SMTP](#production-smtp)) so users receive OTP mail.
+> A technical admin account (`admin@platform.local`) is created to bootstrap the
+> workspace; its random password is stored in `config/.admin.secret`.
 
 Downloads are cached under `backups/<huly-workspace-uuid>/` and reused on re-run.
 Large media blobs are downloaded and uploaded into the local datalake too.
 
-For manual steps, size limits, and troubleshooting see
-[guides/backup-import.md](guides/backup-import.md).
+For manual steps, size limits, and troubleshooting see the import guide
+([English](guides/backup-import.en.md) / [Русский](guides/backup-import.ru.md)).
 
 ## Useful Commands
 
