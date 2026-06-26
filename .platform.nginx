@@ -21,23 +21,23 @@ server {
         proxy_pass http://account:3000/;
     }
 
-    location /_tbank_subscriptions {
-        rewrite ^/_tbank_subscriptions(/.*)$ $1 break;
-        proxy_pass http://tbank-subscriptions:4042/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+    # location /_tbank_subscriptions {
+    #    rewrite ^/_tbank_subscriptions(/.*)$ $1 break;
+    #    proxy_pass http://tbank-subscriptions:4042/;
+    #    proxy_set_header Host $host;
+    #    proxy_set_header X-Real-IP $remote_addr;
+    #    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #    proxy_set_header X-Forwarded-Proto $scheme;
+    #}
 
-    location /_payment {
-        rewrite ^/_payment(/.*)$ $1 break;
-        proxy_pass http://payment:4040/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+    # location /_payment {
+    #    rewrite ^/_payment(/.*)$ $1 break;
+    #    proxy_pass http://payment:4040/;
+    #    proxy_set_header Host $host;
+    #   proxy_set_header X-Real-IP $remote_addr;
+    #    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #    proxy_set_header X-Forwarded-Proto $scheme;
+    #}
 
     #location /_print {
     #    proxy_set_header Host $host;
