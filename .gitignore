@@ -24,3 +24,4 @@ self_*
 
 # Traefik generated
 traefik/docker-compose.yaml
+backups

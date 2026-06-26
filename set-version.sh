@@ -2,8 +2,8 @@
 
 # Script to update Platform Platform version
 # Usage: ./set-version.sh [--silent] <version>
-# Example: ./set-version.sh v0.7.400
-#          ./set-version.sh --silent v0.7.400
+# Example: ./set-version.sh v0.8.0
+#          ./set-version.sh --silent v0.8.0
 
 set -e
 
@@ -44,8 +44,8 @@ get_current_version() {
 # Check if version argument is provided
 if [ -z "$NEW_VERSION" ]; then
     echo "Usage: $0 [--silent] <version>"
-    echo "Example: $0 v0.7.400"
-    echo "         $0 --silent v0.7.400"
+    echo "Example: $0 v0.8.0"
+    echo "         $0 --silent v0.8.0"
     echo ""
     echo "Current version: $(get_current_version)"
     exit 1

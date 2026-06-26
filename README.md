@@ -6,14 +6,16 @@ Deploy Platform on your server with `docker compose`.
 
 ### Prerequisites
 
+- Operating system: **Linux or macOS**. The setup and helper scripts are Bash scripts and require a Unix shell. On Windows use WSL2 (Ubuntu).
 - Docker: [Install guide](https://docs.docker.com/engine/install/ubuntu/), then [post-install steps](https://docs.docker.com/engine/install/linux-postinstall/)
 - Nginx (for reverse proxy)
+- Node.js (only for the Huly backup import tool, `import-backup.mjs`)
 
 ### Setup
 
 ```bash
-git clone https://github.com/intabiafusion/foundation-selfhost.git
-cd foundation-selfhost
+git clone https://github.com/intabia-fusion/platform-selfhost.git
+cd platform-selfhost
 ./setup.sh
 ```
 
@@ -52,7 +54,7 @@ The setup script will:
   --ssl-key <path>      Path to SSL private key (privkey.pem), copied to config/certs/
   --use-livekit         Enable LiveKit for audio/video calls
   --livekit-host <url>  LiveKit server URL (default: ws://<host>/livekit)
-  --version <ver>       Platform version (e.g., v0.7.357). Fetches latest from GitHub if not set
+  --version <ver>       Platform version (e.g., v0.8.0). Fetches latest from GitHub if not set
   --push-public-key <k> VAPID public key for web push notifications
   --push-private-key <k> VAPID private key for web push notifications
   --reset-volumes       Reset volume paths to Docker named volumes
@@ -69,7 +71,7 @@ Use this when updating dev machines to a new platform version without losing dat
 # CI: Update devp1.intabia.ru to a new version
 set -e
 
-cd /path/to/foundation-selfhost
+cd /path/to/platform-selfhost
 git pull
 
 ./setup.sh --silent \
@@ -77,7 +79,7 @@ git pull
   --ssl \
   --ssl-cert /etc/letsencrypt/live/devp1.intabia.ru/fullchain.pem \
   --ssl-key /etc/letsencrypt/live/devp1.intabia.ru/privkey.pem \
-  --version v0.7.357 \
+  --version v0.8.0 \
   --use-livekit
 
 ./up.sh --pull --recreate
@@ -100,7 +102,7 @@ Use this for setting up a new machine or full reset.
 # CI: Clean deploy devp1.intabia.ru from scratch
 set -e
 
-cd /path/to/foundation-selfhost
+cd /path/to/platform-selfhost
 git pull
 
 # Full cleanup (removes config, secrets, data, volumes, images)
@@ -111,7 +113,7 @@ git pull
   --ssl \
   --ssl-cert /etc/letsencrypt/live/devp1.intabia.ru/fullchain.pem \
   --ssl-key /etc/letsencrypt/live/devp1.intabia.ru/privkey.pem \
-  --version v0.7.357 \
+  --version v0.8.0 \
   --use-livekit
 
 ./up.sh --pull
@@ -359,6 +361,35 @@ Redirect URI: `http${SECURE:+s}://${HOST_ADDRESS}/_account/auth/github/callback`
 
 Set `DISABLE_SIGNUP=true` in both `account` and `front` services.
 
+## Migrating from Huly Cloud
+
+You can move a workspace from Huly cloud into this self-hosted instance: download
+its backup and restore it locally.
+
+The easiest way is the interactive wizard:
+
+```bash
+./import-from-huly.sh
+```
+
+It will ask, step by step, for:
+
+1. **Backup URL** and **token** - copy both from your Huly workspace under
+   `Settings -> Backup -> Backup Files` (`Copy to clipboard` buttons).
+2. **Workspace name** - any readable name for the new local workspace.
+3. **Owner email** - an existing local user (sign up in the UI first).
+
+> [!NOTE]
+> The owner account must exist before importing. Sign up at `http://<host>` first.
+> All confirmation emails (OTP) are delivered locally to **Mailpit** at
+> `http://<host>:8025`, not to the real internet.
+
+Downloads are cached under `backups/<huly-workspace-uuid>/` and reused on re-run.
+Large media blobs are downloaded and uploaded into the local datalake too.
+
+For manual steps, size limits, and troubleshooting see
+[guides/backup-import.md](guides/backup-import.md).
+
 ## Useful Commands
 
 ```bash
@@ -369,6 +400,6 @@ Set `DISABLE_SIGNUP=true` in both `account` and `front` services.
 ./down.sh                  # Stop services
 ./cleanup.sh               # Stop services
 ./cleanup.sh --all         # Full reset
-./set-version.sh v0.7.400  # Change platform version
+./set-version.sh v0.8.0  # Change platform version
 ./nginx.sh                 # Regenerate nginx config
 ```

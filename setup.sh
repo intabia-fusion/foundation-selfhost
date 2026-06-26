@@ -40,7 +40,7 @@ OPTIONS:
   --push-public-key <k> VAPID public key for web push notifications
   --push-private-key <k> VAPID private key for web push notifications
   --dev                 Development mode (localhost, LiveKit with devkey, no SSL)
-  --version <ver>       Set platform version (e.g., v0.7.357). Fetches latest from GitHub if not set.
+  --version <ver>       Set platform version (e.g., v0.8.0). Fetches latest from GitHub if not set.
   --reset-volumes       Reset volume paths to empty (use Docker named volumes)
   --help                Show this help message
 
@@ -50,7 +50,7 @@ EXAMPLES:
   $0 --silent --host myhost    Setup with specific host
   $0 --silent --use-livekit    Enable LiveKit in silent mode
   $0 --host localhost --port 8080 --use-livekit
-  $0 --silent --version v0.7.357   Setup with specific version
+  $0 --silent --version v0.8.0   Setup with specific version
   $0 --dev                         Dev mode with local LiveKit
 
 DEFAULT VALUES (in silent mode):
@@ -275,7 +275,7 @@ EGEOF
 fi
 
 # Fetch latest version from GitHub
-GITHUB_TAGS_URL="https://api.github.com/repos/intabia-fusion/foundation/tags?per_page=1"
+GITHUB_TAGS_URL="https://api.github.com/repos/intabia-fusion/platform/tags?per_page=1"
 LATEST_VERSION=""
 if command -v curl &>/dev/null; then
     LATEST_VERSION=$(curl -sf "$GITHUB_TAGS_URL" | grep -m1 '"name"' | sed 's/.*"name": *"\([^"]*\)".*/\1/')
