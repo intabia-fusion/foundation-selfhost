@@ -64,6 +64,11 @@ On this page (**Settings -> Backup -> Backup Files**):
 > The same page shows backup stats (snapshots, file count, size) and lets you
 > download `index.json` / `index.html` directly to verify access first.
 
+> [!NOTE]
+> Huly creates a backup roughly **every 12 hours**, so the latest backup may lag
+> behind the live workspace by up to 12 hours. Check the "Last backup" time on the
+> page before importing.
+
 ## Step 2. Run the wizard
 
 ```bash
