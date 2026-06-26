@@ -32,6 +32,12 @@ The setup script will:
 ./up.sh
 ```
 
+> [!NOTE]
+> The platform listens on **port 80** by default and is reachable directly at
+> `http://<host>`. If you set a different `--port` (e.g. `8080`), you must put
+> your own reverse proxy in front of it - the bundled nginx maps the chosen host
+> port straight to the container, nothing else serves port 80.
+
 ### Stop Services
 
 ```bash

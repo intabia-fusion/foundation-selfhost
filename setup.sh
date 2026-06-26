@@ -31,7 +31,7 @@ Setup script for Platform.
 OPTIONS:
   --silent              Run without interactive prompts (use defaults or provided values)
   --host <address>      Set host address (e.g., localhost or platform.example.com)
-  --port <port>         Set HTTP port (default: 8080)
+  --port <port>         Set HTTP port (default: 80)
   --ssl                 Enable SSL/HTTPS
   --ssl-cert <path>     Path to SSL certificate (fullchain.pem). Copied to config/certs/
   --ssl-key <path>      Path to SSL private key (privkey.pem). Copied to config/certs/
@@ -55,7 +55,7 @@ EXAMPLES:
 
 DEFAULT VALUES (in silent mode):
   Host:         localhost
-  Port:         8080
+  Port:         80
   SSL:          disabled
   LiveKit:      disabled
   Data paths:   ./data/<service>
@@ -155,6 +155,13 @@ _CLI_SILENT=$SILENT
 _CLI_USE_LIVEKIT=$USE_LIVEKIT
 _CLI_LIVEKIT_HOST=$LIVEKIT_HOST
 _CLI_VERSION=$VERSION
+_CLI_HOST=$HOST
+_CLI_HTTP_PORT=$HTTP_PORT
+_CLI_SSL=$SSL
+_CLI_SSL_CERT=$SSL_CERT
+_CLI_SSL_KEY=$SSL_KEY
+_CLI_PUSH_PUBLIC=$PUSH_PUBLIC
+_CLI_PUSH_PRIVATE=$PUSH_PRIVATE
 
 # Source existing config if available
 if [ -f "$CONFIG_FILE" ]; then
@@ -167,6 +174,13 @@ fi
 [[ -n "$_CLI_USE_LIVEKIT" ]] && USE_LIVEKIT=$_CLI_USE_LIVEKIT
 [[ -n "$_CLI_LIVEKIT_HOST" ]] && LIVEKIT_HOST=$_CLI_LIVEKIT_HOST
 [[ -n "$_CLI_VERSION" ]] && VERSION=$_CLI_VERSION
+[[ -n "$_CLI_HOST" ]] && HOST=$_CLI_HOST
+[[ -n "$_CLI_HTTP_PORT" ]] && HTTP_PORT=$_CLI_HTTP_PORT
+[[ -n "$_CLI_SSL" ]] && SSL=$_CLI_SSL
+[[ -n "$_CLI_SSL_CERT" ]] && SSL_CERT=$_CLI_SSL_CERT
+[[ -n "$_CLI_SSL_KEY" ]] && SSL_KEY=$_CLI_SSL_KEY
+[[ -n "$_CLI_PUSH_PUBLIC" ]] && PUSH_PUBLIC=$_CLI_PUSH_PUBLIC
+[[ -n "$_CLI_PUSH_PRIVATE" ]] && PUSH_PRIVATE=$_CLI_PUSH_PRIVATE
 
 # Create config directory
 mkdir -p "$CONFIG_DIR"
@@ -333,7 +347,7 @@ PREV_LIVEKIT_TURN_DOMAIN="${LIVEKIT_TURN_DOMAIN}"
 if [ "$SILENT" == true ]; then
     # Silent mode - use defaults or provided values
     _HOST_ADDRESS="${HOST:-${HOST_ADDRESS:-localhost}}"
-    _HTTP_PORT="${HTTP_PORT:-${HTTP_PORT:-8080}}"
+    _HTTP_PORT="${HTTP_PORT:-${HTTP_PORT:-80}}"
     _SECURE="${SSL:-${SECURE:-}}"
     _LIVEKIT_ENABLED="${USE_LIVEKIT:-false}"
 
@@ -383,10 +397,10 @@ else
             prompt_value="${HTTP_PORT}"
         else
             prompt_type="default"
-            prompt_value="8080"
+            prompt_value="80"
         fi
         read -p "Enter the port for HTTP [${prompt_type}: ${prompt_value}]: " input
-        _HTTP_PORT="${input:-${HTTP_PORT:-8080}}"
+        _HTTP_PORT="${input:-${HTTP_PORT:-80}}"
         if [[ "$_HTTP_PORT" =~ ^[0-9]+$ && "$_HTTP_PORT" -ge 1 && "$_HTTP_PORT" -le 65535 ]]; then
             break
         else
