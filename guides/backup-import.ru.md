@@ -48,6 +48,8 @@ self-hosted Платформе.
 Откройте рабочее пространство в web-приложении Huly и перейдите в настройки
 бэкапа:
 
+![IMG](./backup_api.png)
+
 ```
 https://huly.app/workbench/<workspace>/setting/setting/backup
 ```
