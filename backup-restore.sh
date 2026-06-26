@@ -30,6 +30,9 @@ EXTRA_ARGS=()
 # Restore person/socialId accounts from the backup. On by default - needed when
 # migrating a workspace so its members/authors are recreated. Disable with --no-accounts.
 RESTORE_ACCOUNTS=true
+# Upgrade the workspace to the current model version after restore. On by default -
+# the backup is usually from an older version. Disable with --no-upgrade.
+UPGRADE=true
 
 shift $(( $# >= 2 ? 2 : $# )) || true
 # Optional flags, then optional [date], then optional `-- extra args`
@@ -37,6 +40,8 @@ while [ $# -gt 0 ] && [ "${1:-}" != "--" ]; do
     case "$1" in
         --accounts)    RESTORE_ACCOUNTS=true;  shift ;;
         --no-accounts) RESTORE_ACCOUNTS=false; shift ;;
+        --upgrade)     UPGRADE=true;  shift ;;
+        --no-upgrade)  UPGRADE=false; shift ;;
         *) DATE="$1"; shift ;;
     esac
 done
@@ -52,7 +57,8 @@ if [ -z "$BACKUP_DIR" ] || [ -z "$WORKSPACE" ]; then
     echo "  <workspace>    Target workspace id/url to restore into"
     echo "  [date]         Optional snapshot timestamp (ms). Default: latest"
     echo "  --no-accounts  Do not restore person/socialId accounts (default: restore them)"
-    echo "  -- <args>      Extra args passed to 'tool backup-restore' (e.g. --merge --upgrade)"
+    echo "  --no-upgrade   Do not upgrade the workspace after restore (default: upgrade)"
+    echo "  -- <args>      Extra args passed to 'tool backup-restore' (e.g. --merge)"
     exit 1
 fi
 
@@ -76,6 +82,7 @@ echo "  Source:    $BACKUP_ABS"
 echo "  Workspace: $WORKSPACE"
 echo "  Date:      ${DATE:-latest}"
 echo "  Accounts:  ${RESTORE_ACCOUNTS}"
+echo "  Upgrade:   ${UPGRADE}"
 echo "  Network:   $NETWORK"
 echo "  Version:   $PLATFORM_VERSION"
 echo ""
@@ -94,6 +101,13 @@ CMD=(backup-restore /backup "$WORKSPACE")
 RUN_TOOL_DOCKER_ARGS="-v ${BACKUP_ABS}:/backup" ./run-tool.sh "${CMD[@]}"
 
 echo -e "\n\033[1;32mRestore finished.\033[0m"
+
+# Upgrade the workspace to the current model version (backups are usually older).
+if [ "$UPGRADE" == true ]; then
+    echo -e "\n\033[1;34mUpgrading workspace ${WORKSPACE} to the current version...\033[0m"
+    ./run-tool.sh upgrade-workspace "$WORKSPACE"
+    echo -e "\033[1;32mUpgrade finished.\033[0m"
+fi
 
 # Upload extra blobs (large media not embedded in the backup) into datalake.
 BLOB_DIR="$BACKUP_ABS/blobs"
