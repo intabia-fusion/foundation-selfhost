@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Script to start Platform Platform
+# Script to start Intabia Platform
 # Usage: ./up.sh [options]
 # Options:
 #   --recreate   Recreate containers (use after config changes)
@@ -102,7 +102,7 @@ if [ ! -f "$CONFIG_DIR/nginx.conf" ]; then
 fi
 
 # Start services
-echo "Starting Platform Platform services..."
+echo "Starting Intabia Platform services..."
 
 if [ "$RECREATE" == true ]; then
     echo "Recreating containers..."

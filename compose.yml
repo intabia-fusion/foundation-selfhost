@@ -36,6 +36,18 @@ services:
     networks:
       - platform_net
 
+  db-migrator:
+    image: intabiafusion/db-migrator:${PLATFORM_VERSION}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - SERVICE_ID=db-migrator
+      - DB_URL=${CR_DB_URL}
+    restart: "no"
+    networks:
+      - platform_net
+
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v25.2.11
     command:
@@ -232,7 +244,7 @@ services:
       - ELASTIC_URL=http://elastic:9200
       - COLLABORATOR_URL=ws${SECURE:+s}://${HOST_ADDRESS}/_collaborator
       - STORAGE_CONFIG=${STORAGE_CONFIG}
-      - TITLE=${TITLE:-Platform Self Host}
+      - TITLE=${TITLE:-Intabia Platform}
       - DEFAULT_LANGUAGE=${DEFAULT_LANGUAGE:-ru}
       - LAST_NAME_FIRST=${LAST_NAME_FIRST:-true}
       - DESKTOP_UPDATES_CHANNEL=${DESKTOP_CHANNEL}
@@ -505,12 +517,14 @@ services:
       - STATS_URL=http://stats:4900
       - LOVE_ENDPOINT=http://love:8097
       - BILLING_URL=http://billing:4042
-      - LLM_PROVIDER=${LLM_PROVIDER:-server} # gigachat
+      # LLM_PROVIDER: openai (incl. OpenAI-compatible local servers), gigachat, server (delegate to clients), empty = disabled
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
       - OPENAI_SUMMARY_MODEL=${OPENAI_SUMMARY_MODEL}
       - OPENAI_TRANSLATE_MODEL=${OPENAI_TRANSLATE_MODEL}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL}
-      - STT_PROVIDER=${STT_PROVIDER:-server}
+      - STT_PROVIDER=${STT_PROVIDER:-openai}
       - STT_URL=${STT_URL}
       - STT_API_KEY=${STT_API_KEY}
       - STT_MODEL=${STT_MODEL}
@@ -633,7 +647,7 @@ services:
       - SOURCE=hello@localhost
       - REPLY_TO=hello@localhost
       - QUEUE_CONFIG=redpanda:9092
-      - PORT=8077
+      - PORT=8097
       - REGION=
       - API_KEY=main_secret
       - SMTP_HOST=mailpit
@@ -797,17 +811,6 @@ services:
       - SECRET_KEY=none
       - PUSH_PUBLIC_KEY=${PUSH_PUBLIC_KEY:-}
       - PUSH_PRIVATE_KEY=${PUSH_PRIVATE_KEY:-}
-    restart: unless-stopped
-    networks:
-      - platform_net
-  oaitt:
-    image: intabiafusion/oaitt:v1.0.0
-    platform: linux/amd64 # arm64 image not published; runs via emulation
-    environment:
-      - PORT=9007
-      - ASR_ENGINE=gigaam
-      - DEVICE=cpu
-      - GIGAAM_MODEL=v3_e2e_ctc
     restart: unless-stopped
     networks:
       - platform_net

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Script to update Platform Platform version
+# Script to update Intabia Platform version
 # Usage: ./set-version.sh [--silent] <version>
 # Example: ./set-version.sh v0.8.0
 #          ./set-version.sh --silent v0.8.0

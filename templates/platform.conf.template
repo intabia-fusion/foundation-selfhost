@@ -55,14 +55,22 @@ LIVEKIT_ENABLED=${LIVEKIT_ENABLED}
 LIVEKIT_TURN_DOMAIN=${LIVEKIT_TURN_DOMAIN}
 
 # STT (Speech-to-Text) configuration for AI Bot
+# STT_PROVIDER: openai (any OpenAI-compatible /v1/audio/transcriptions endpoint), deepgram,
+#               server (delegate to connected ai-bot clients), empty = disabled
+# STT_URL: endpoint of the transcription server, e.g. http://host.docker.internal:9007
+#          for a locally running oaitt container (see README, AI Bot section)
 STT_PROVIDER=${STT_PROVIDER}
 STT_URL=${STT_URL}
 STT_API_KEY=${STT_API_KEY}
 STT_MODEL=${STT_MODEL}
 
-# OpenAI configuration for AI Bot
+# LLM configuration for AI Bot
+# LLM_PROVIDER: openai (incl. OpenAI-compatible local servers like LM Studio, Ollama, vLLM),
+#               gigachat, server (delegate to connected ai-bot clients), empty = disabled
+LLM_PROVIDER=${LLM_PROVIDER}
 OPENAI_API_KEY=${OPENAI_API_KEY}
 OPENAI_BASE_URL=${OPENAI_BASE_URL}
+OPENAI_MODEL=${OPENAI_MODEL}
 OPENAI_SUMMARY_MODEL=${OPENAI_SUMMARY_MODEL}
 OPENAI_TRANSLATE_MODEL=${OPENAI_TRANSLATE_MODEL}
 

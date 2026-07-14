@@ -1,6 +1,8 @@
-# Platform Self-Hosted
+# Intabia Platform Self-Hosted
 
-Deploy Platform on your server with `docker compose`.
+**English** | [Русский](README.ru.md)
+
+Deploy Intabia Platform on your server with `docker compose`.
 
 ## Quick Start
 
@@ -63,8 +65,18 @@ The setup script will:
   --version <ver>       Platform version (e.g., v0.8.0). Fetches latest from GitHub if not set
   --push-public-key <k> VAPID public key for web push notifications
   --push-private-key <k> VAPID private key for web push notifications
+  --llm-provider <p>    AI Bot LLM provider: openai, gigachat, server, empty to disable
+  --openai-key <k>      OpenAI-compatible API key
+  --openai-base-url <u> OpenAI-compatible base URL (local models: http://host.docker.internal:1234/v1/)
+  --openai-model <m>    Model name (also applied to summary and translate models)
+  --stt-provider <p>    Transcription provider: openai, deepgram, server, empty to disable
+  --stt-url <url>       OpenAI-compatible transcription endpoint
+  --stt-key <k>         Transcription API key
+  --stt-model <m>       Transcription model name
   --reset-volumes       Reset volume paths to Docker named volumes
 ```
+
+See [AI Bot](#ai-bot) for LLM and transcription configuration.
 
 ## CI/CD Deployment
 
@@ -267,7 +279,7 @@ Or edit `config/platform.conf` directly and restart: `./up.sh --recreate`
 The default configuration includes **Mailpit** for email debugging:
 
 - **Mailpit UI**: `http://<host>:8025` (configurable via `MAILPIT_HTTP_PORT` in `config/platform.conf`)
-- **SMTP**: port 1025 (internal, for Platform services)
+- **SMTP**: port 1025 (internal, for Intabia Platform services)
 
 All emails are captured but **not delivered** to real recipients.
 
@@ -334,14 +346,90 @@ front:
 
 ### AI Bot
 
-Already included in `compose.yml`. Requires OpenAI-compatible API. Configure in `config/platform.conf`:
+Already included in `compose.yml`. Two independent parts: an LLM (summaries, translation) and
+a transcription (STT) endpoint for call recordings. Both talk to any OpenAI-compatible server,
+so local models work as well as cloud ones.
+
+Configure via `./setup.sh` flags or by editing `config/platform.conf` and running `./up.sh --recreate`.
+
+#### LLM
 
 ```
-OPENAI_API_KEY=your_key
-OPENAI_BASE_URL=https://api.openai.com/v1/
-OPENAI_SUMMARY_MODEL=gpt-4
-OPENAI_TRANSLATE_MODEL=gpt-4
+LLM_PROVIDER=openai
+OPENAI_API_KEY=token
+OPENAI_BASE_URL=http://host.docker.internal:1234/v1/
+OPENAI_MODEL=openai/gpt-oss-20b
+OPENAI_SUMMARY_MODEL=openai/gpt-oss-20b
+OPENAI_TRANSLATE_MODEL=openai/gpt-oss-20b
 ```
+
+`LLM_PROVIDER` accepts:
+
+| Value | Meaning |
+|---|---|
+| `openai` | Any OpenAI-compatible endpoint - OpenAI itself, LM Studio, Ollama, vLLM, llama.cpp |
+| `gigachat` | GigaChat (set `GIGACHAT_CREDENTIALS` in the `aibot` service) |
+| `server` | Delegate requests to separately deployed ai-bot clients |
+| empty | LLM features disabled |
+
+For a local model server running on the Docker host use `http://host.docker.internal:<port>/v1/`
+(`localhost` inside the container points at the container itself, not the host).
+
+Cloud OpenAI example:
+
+```bash
+./setup.sh --silent \
+  --llm-provider openai \
+  --openai-key sk-... \
+  --openai-base-url https://api.openai.com/v1/ \
+  --openai-model gpt-4o-mini
+```
+
+Local LM Studio example:
+
+```bash
+./setup.sh --silent \
+  --llm-provider openai \
+  --openai-base-url http://host.docker.internal:1234/v1/ \
+  --openai-model openai/gpt-oss-20b
+```
+
+#### Transcription (STT)
+
+```
+STT_PROVIDER=openai
+STT_URL=http://host.docker.internal:9007
+STT_API_KEY=key
+STT_MODEL=
+```
+
+`STT_PROVIDER` accepts `openai` (any OpenAI-compatible `/v1/audio/transcriptions` endpoint),
+`deepgram`, `server`, or empty to disable transcription.
+
+The transcription server is **not** part of `compose.yml` - run it yourself, it is usually
+GPU-bound and has its own lifecycle. A ready-made Russian-capable option is `oaitt`:
+
+```bash
+docker run -d --name oaitt --restart unless-stopped \
+  -p 9007:9007 \
+  -e PORT=9007 \
+  -e ASR_ENGINE=gigaam \
+  -e DEVICE=cpu \
+  -e GIGAAM_MODEL=v3_e2e_ctc \
+  intabiafusion/oaitt:v1.0.0
+```
+
+> The `oaitt` image is published for `linux/amd64` only; on Apple Silicon add `--platform linux/amd64`
+> (runs under emulation and is slow). Use `DEVICE=cuda` on a GPU host.
+
+Then point the platform at it:
+
+```bash
+./setup.sh --silent --stt-provider openai --stt-url http://host.docker.internal:9007
+```
+
+If the transcription server runs on another machine, use its address instead
+(e.g. `--stt-url http://asr.internal:9007`).
 
 ### Google Calendar
 

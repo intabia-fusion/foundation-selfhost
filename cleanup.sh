@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Script to stop and clean up Platform Platform services
+# Script to stop and clean up Intabia Platform services
 # Usage: ./cleanup.sh [options]
 # Options:
 #   --volumes    Also remove Docker volumes (WARNING: this will delete all data!)
@@ -102,7 +102,7 @@ if [ "$REMOVE_IMAGES" == true ]; then
     DOWN_FLAGS="$DOWN_FLAGS --rmi all"
 fi
 
-echo "Stopping Platform Platform services..."
+echo "Stopping Intabia Platform services..."
 $DC down $DOWN_FLAGS
 
 if [ "$REMOVE_VOLUMES" == true ]; then

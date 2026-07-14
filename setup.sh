@@ -26,7 +26,7 @@ show_help() {
     cat << EOF
 Usage: $0 [OPTIONS]
 
-Setup script for Platform.
+Setup script for Intabia Platform.
 
 OPTIONS:
   --silent              Run without interactive prompts (use defaults or provided values)
@@ -39,6 +39,15 @@ OPTIONS:
   --livekit-host <url>  Set LiveKit server URL (default: ws://<host>/livekit)
   --push-public-key <k> VAPID public key for web push notifications
   --push-private-key <k> VAPID private key for web push notifications
+  --llm-provider <p>    AI Bot LLM provider: openai (also OpenAI-compatible local servers),
+                        gigachat, server, or empty to disable (default: openai)
+  --openai-key <k>      OpenAI-compatible API key (default: token)
+  --openai-base-url <u> OpenAI-compatible base URL (default: http://host.docker.internal:1234/v1/)
+  --openai-model <m>    Model name, also used for summary and translate models
+  --stt-provider <p>    Transcription provider: openai, deepgram, server, or empty to disable
+  --stt-url <url>       OpenAI-compatible transcription endpoint (default: http://host.docker.internal:9007)
+  --stt-key <k>         Transcription API key (default: key)
+  --stt-model <m>       Transcription model name
   --dev                 Development mode (localhost, LiveKit with devkey, no SSL)
   --version <ver>       Set platform version (e.g., v0.8.0). Fetches latest from GitHub if not set.
   --reset-volumes       Reset volume paths to empty (use Docker named volumes)
@@ -97,6 +106,38 @@ while [[ $# -gt 0 ]]; do
             ;;
         --push-private-key)
             PUSH_PRIVATE="$2"
+            shift 2
+            ;;
+        --llm-provider)
+            _CLI_LLM_PROVIDER="$2"
+            shift 2
+            ;;
+        --openai-key)
+            _CLI_OPENAI_API_KEY="$2"
+            shift 2
+            ;;
+        --openai-base-url)
+            _CLI_OPENAI_BASE_URL="$2"
+            shift 2
+            ;;
+        --openai-model)
+            _CLI_OPENAI_MODEL="$2"
+            shift 2
+            ;;
+        --stt-provider)
+            _CLI_STT_PROVIDER="$2"
+            shift 2
+            ;;
+        --stt-url)
+            _CLI_STT_URL="$2"
+            shift 2
+            ;;
+        --stt-key)
+            _CLI_STT_API_KEY="$2"
+            shift 2
+            ;;
+        --stt-model)
+            _CLI_STT_MODEL="$2"
             shift 2
             ;;
         --use-livekit)
@@ -420,7 +461,7 @@ else
                 prompt_type="default"
                 prompt_value="No"
             fi
-            read -p "Will you serve Platform over SSL? (y/n) [${prompt_type}: ${prompt_value}]: " input
+            read -p "Will you serve Intabia Platform over SSL? (y/n) [${prompt_type}: ${prompt_value}]: " input
             case "${input}" in
                 [Yy]* ) _SECURE="true"; break;;
                 [Nn]* ) _SECURE=""; break;;
@@ -623,7 +664,7 @@ else
 fi
 export HTTP_PORT=$_HTTP_PORT
 export HTTP_BIND=$HTTP_BIND
-export TITLE=${TITLE:-Platform}
+export TITLE=${TITLE:-Intabia Platform}
 export DEFAULT_LANGUAGE=${DEFAULT_LANGUAGE:-ru}
 export LAST_NAME_FIRST=${LAST_NAME_FIRST:-true}
 export POSTGRES_DB=${POSTGRES_DB:-platform}
@@ -639,14 +680,16 @@ export LIVEKIT_API_KEY=${_LIVEKIT_API_KEY}
 export LIVEKIT_API_SECRET=${_LIVEKIT_API_SECRET}
 export LIVEKIT_ENABLED=${_LIVEKIT_ENABLED}
 export LIVEKIT_TURN_DOMAIN=${LIVEKIT_TURN_DOMAIN}
-export STT_PROVIDER=${STT_PROVIDER:-openai}
-export STT_URL=${STT_URL:-http://oaitt:9007}
-export STT_API_KEY=${STT_API_KEY:-key}
-export STT_MODEL=${STT_MODEL}
-export OPENAI_API_KEY=${OPENAI_API_KEY:-token}
-export OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://localhost:1234/v1/}
-export OPENAI_SUMMARY_MODEL=${OPENAI_SUMMARY_MODEL:-openai/gpt-oss-20b}
-export OPENAI_TRANSLATE_MODEL=${OPENAI_TRANSLATE_MODEL:-openai/gpt-oss-20b}
+export STT_PROVIDER=${_CLI_STT_PROVIDER:-${STT_PROVIDER:-openai}}
+export STT_URL=${_CLI_STT_URL:-${STT_URL:-http://host.docker.internal:9007}}
+export STT_API_KEY=${_CLI_STT_API_KEY:-${STT_API_KEY:-key}}
+export STT_MODEL=${_CLI_STT_MODEL:-${STT_MODEL}}
+export LLM_PROVIDER=${_CLI_LLM_PROVIDER:-${LLM_PROVIDER:-openai}}
+export OPENAI_API_KEY=${_CLI_OPENAI_API_KEY:-${OPENAI_API_KEY:-token}}
+export OPENAI_BASE_URL=${_CLI_OPENAI_BASE_URL:-${OPENAI_BASE_URL:-http://host.docker.internal:1234/v1/}}
+export OPENAI_MODEL=${_CLI_OPENAI_MODEL:-${OPENAI_MODEL:-openai/gpt-oss-20b}}
+export OPENAI_SUMMARY_MODEL=${_CLI_OPENAI_MODEL:-${OPENAI_SUMMARY_MODEL:-$OPENAI_MODEL}}
+export OPENAI_TRANSLATE_MODEL=${_CLI_OPENAI_MODEL:-${OPENAI_TRANSLATE_MODEL:-$OPENAI_MODEL}}
 # Web Push VAPID keys — generate if not provided and not already configured
 _PUSH_PUBLIC="${PUSH_PUBLIC:-${PUSH_PUBLIC_KEY:-}}"
 _PUSH_PRIVATE="${PUSH_PRIVATE:-${PUSH_PRIVATE_KEY:-}}"
@@ -773,7 +816,7 @@ if [ "$SILENT" == false ]; then
             ./up.sh
             ;;
         *)
-            echo "You can run './up.sh' later to start Platform."
+            echo "You can run './up.sh' later to start Intabia Platform."
             ;;
     esac
 else

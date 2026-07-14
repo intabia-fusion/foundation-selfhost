@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Script to stop Platform services
+# Script to stop Intabia Platform services
 # Usage: ./down.sh [options]
 # Options:
 #   --help       Show this help message
@@ -21,6 +21,6 @@ elif [ "$LIVEKIT_ENABLED" == "true" ]; then
     DC="$DC --profile livekit"
 fi
 
-echo "Stopping Platform services..."
+echo "Stopping Intabia Platform services..."
 $DC down
 echo -e "\033[1;32mServices stopped.\033[0m"
