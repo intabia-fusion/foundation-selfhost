@@ -77,6 +77,11 @@ elif [ "$LIVEKIT_ENABLED" == "true" ]; then
     DC="$DC --profile livekit"
 fi
 
+# tbank-subscriptions only runs when payments are routed through the bank integration
+if [ "$PAYMENT_PROVIDER" == "tbank" ]; then
+    DC="$DC --profile tbank"
+fi
+
 # Pull images if requested
 if [ "$PULL" == true ]; then
     echo "Pulling latest Docker images..."
@@ -93,6 +98,13 @@ fi
 if [ ! -f "$CONFIG_DIR/region-config.yaml" ]; then
     echo "Error: region-config.yaml not found. Please run ./setup.sh first."
     exit 1
+fi
+
+# ai-bot model registry: docker would mount a directory in its place if missing
+if [ ! -f "$CONFIG_DIR/config-aibot.yaml" ]; then
+    echo "AI Bot config not found, generating..."
+    [ -d "$CONFIG_DIR/config-aibot.yaml" ] && rm -rf "$CONFIG_DIR/config-aibot.yaml"
+    ./setup_aibot.sh --silent >/dev/null || echo "Warning: setup_aibot.sh failed"
 fi
 
 # Check nginx config exists, generate if not

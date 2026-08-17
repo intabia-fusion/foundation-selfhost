@@ -65,12 +65,14 @@ cd platform-selfhost
   --version <ver>       Версия платформы (например, v0.8.0). Если не задана, берётся последняя с GitHub
   --push-public-key <k> Публичный ключ VAPID для web push
   --push-private-key <k> Приватный ключ VAPID для web push
-  --llm-provider <p>    LLM-провайдер AI-бота: openai, gigachat, server, пусто - выключить
-  --openai-key <k>      Ключ OpenAI-совместимого API
-  --openai-base-url <u> Базовый URL OpenAI-совместимого API (локальные модели: http://host.docker.internal:1234/v1/)
-  --openai-model <m>    Название модели (также применяется к моделям пересказа и перевода)
-  --stt-provider <p>    Провайдер транскрибации: openai, deepgram, server, пусто - выключить
-  --stt-url <url>       OpenAI-совместимый endpoint транскрибации
+  --llm <mode>          Модель AI-бота: local, openai, gigachat, none
+  --llm-url <u>         Базовый URL модели (локальные модели: http://host.docker.internal:1234/v1/)
+  --llm-key <k>         Ключ API модели
+  --llm-model <m>       Название модели (также применяется к моделям пересказа и перевода)
+  --gigachat-id <id>    Client ID GigaChat
+  --gigachat-secret <s> Client Secret GigaChat
+  --stt <mode>          Транскрибация: local, openai, none
+  --stt-url <url>       Endpoint транскрибации
   --stt-key <k>         Ключ API транскрибации
   --stt-model <m>       Название модели транскрибации
   --reset-volumes       Сбросить пути томов на именованные тома Docker
@@ -105,7 +107,7 @@ git pull
 
 Что происходит:
 - конфиг обновляется указанной версией и настройками;
-- LiveKit по умолчанию получает адрес `wss://lkit.devp1.intabia.ru` (генерируется из хоста при SSL);
+- LiveKit по умолчанию получает адрес `wss://devp1.intabia.ru/livekit` (проксируется сгенерированным конфигом nginx);
 - существующие данные сохраняются (Postgres, Elasticsearch, Redpanda, Minio);
 - существующие секреты сохраняются (не перегенерируются, если файлы есть);
 - ключи VAPID для web push генерируются автоматически при первом запуске;
@@ -140,11 +142,11 @@ git pull
 Что происходит:
 - удаляются все существующие конфиги, секреты, данные и ресурсы Docker;
 - генерируются новые секреты и ключи VAPID;
-- LiveKit по умолчанию получает адрес `wss://lkit.devp1.intabia.ru`;
+- LiveKit по умолчанию получает адрес `wss://devp1.intabia.ru/livekit`;
 - создаются пустые базы данных;
 - образы скачиваются, сервисы запускаются.
 
-> **Примечание:** замените `devp1` на номер конкретной машины (`devp2`, `devp3` и т.д.). SSL-сертификаты для `devpN.intabia.ru` и `lkit.devpN.intabia.ru` должны быть выпущены заранее.
+> **Примечание:** замените `devp1` на номер конкретной машины (`devp2`, `devp3` и т.д.). SSL-сертификат для `devpN.intabia.ru` должен быть выпущен заранее.
 
 ### Ключевые различия
 
@@ -187,6 +189,8 @@ git pull
 | `config/version.txt` | Версия платформы |
 | `config/branding.json` | Настройки брендирования |
 | `config/region-config.yaml` | Конфигурация регионов |
+| `config/config-aibot.yaml` | Реестр моделей AI-бота (генерируется `./setup_aibot.sh`) |
+| `plan-config.yaml` | Тарифы, пакеты хранилища и пакеты AI-токенов (корень репозитория, не `config/`) |
 | `config/nginx.conf` | Конфигурация nginx |
 | `config/livekit.yaml` | Конфиг сервера LiveKit (когда включён) |
 | `config/livekit-egress-config.yaml` | Конфиг LiveKit Egress (когда включён) |
@@ -346,66 +350,60 @@ front:
 
 ### AI-бот
 
-Уже включён в `compose.yml`. Состоит из двух независимых частей: LLM (пересказы, перевод) и
-endpoint транскрибации (STT) для записей звонков. Обе части работают с любым OpenAI-совместимым
-сервером, поэтому локальные модели подходят так же, как облачные.
+Уже включён в `compose.yml`. Состоит из двух независимых частей: языковая модель (чат, пересказы,
+перевод) и endpoint транскрибации для встреч и голосовых заметок. Обе части работают с любым
+OpenAI-совместимым сервером, поэтому локальные модели подходят так же, как облачные.
 
-Настраивается флагами `./setup.sh` либо правкой `config/platform.conf` с последующим `./up.sh --recreate`.
-
-#### LLM
-
-```
-LLM_PROVIDER=openai
-OPENAI_API_KEY=token
-OPENAI_BASE_URL=http://host.docker.internal:1234/v1/
-OPENAI_MODEL=openai/gpt-oss-20b
-OPENAI_SUMMARY_MODEL=openai/gpt-oss-20b
-OPENAI_TRANSLATE_MODEL=openai/gpt-oss-20b
+```bash
+./setup_aibot.sh                # интерактивно
+./up.sh --recreate              # применить
 ```
 
-Допустимые значения `LLM_PROVIDER`:
+Скрипт задаёт два вопроса - какая модель и какой endpoint транскрибации - и записывает:
 
-| Значение | Смысл |
+- `config/config-aibot.yaml` - реестр моделей, по которому бот маршрутизирует запросы (уровни -> модели)
+- значения AI в `config/platform.conf` (ключи, URL, названия моделей)
+
+В yaml остаются подстановки `${VAR}`, поэтому ключи и названия моделей меняются правкой одного
+`config/platform.conf`; перегенерация нужна только при смене провайдера. `./setup.sh` принимает
+те же опции и передаёт их дальше.
+
+#### Языковая модель
+
+| Режим | Смысл |
 |---|---|
-| `openai` | Любой OpenAI-совместимый endpoint - сам OpenAI, LM Studio, Ollama, vLLM, llama.cpp |
-| `gigachat` | GigaChat (задайте `GIGACHAT_CREDENTIALS` в сервисе `aibot`) |
-| `server` | Передавать запросы отдельно развёрнутым клиентам ai-bot |
-| пусто | Функции LLM отключены |
+| `local` | OpenAI-совместимый сервер на хосте Docker - LM Studio, Ollama, vLLM, llama.cpp |
+| `openai` | Облако OpenAI |
+| `gigachat` | Облако GigaChat - три уровня: Стандарт (GigaChat-2), Профи (-Pro), Максимум (-Max) |
+| `none` | Не записывать реестр моделей |
 
 Для локального сервера моделей, запущенного на хосте Docker, используйте
 `http://host.docker.internal:<port>/v1/` (`localhost` внутри контейнера указывает на сам контейнер,
 а не на хост).
 
-Пример с облачным OpenAI:
+```bash
+# Локальный LM Studio
+./setup_aibot.sh --silent --llm local \
+  --llm-url http://host.docker.internal:1234/v1/ --llm-model openai/gpt-oss-20b
+
+# Облако OpenAI
+./setup_aibot.sh --silent --llm openai --llm-key sk-... --llm-model gpt-4o-mini
+
+# Облако GigaChat
+./setup_aibot.sh --silent --llm gigachat --gigachat-id <client id> --gigachat-secret <client secret>
+```
+
+Уровни, коэффициенты биллинга и ограничения контекста/ответа лежат в `config/config-aibot.yaml`
+и правятся вручную - для маленькой локальной модели уменьшите `maxContextTokens` и `maxOutputTokens`.
+
+#### Транскрибация
 
 ```bash
-./setup.sh --silent \
-  --llm-provider openai \
-  --openai-key sk-... \
-  --openai-base-url https://api.openai.com/v1/ \
-  --openai-model gpt-4o-mini
+./setup_aibot.sh --silent --stt local --stt-url http://host.docker.internal:9007 --stt-model gigaam
 ```
 
-Пример с локальным LM Studio:
-
-```bash
-./setup.sh --silent \
-  --llm-provider openai \
-  --openai-base-url http://host.docker.internal:1234/v1/ \
-  --openai-model openai/gpt-oss-20b
-```
-
-#### Транскрибация (STT)
-
-```
-STT_PROVIDER=openai
-STT_URL=http://host.docker.internal:9007
-STT_API_KEY=key
-STT_MODEL=
-```
-
-`STT_PROVIDER` принимает `openai` (любой OpenAI-совместимый endpoint `/v1/audio/transcriptions`),
-`deepgram`, `server` или пустое значение для отключения транскрибации.
+`--stt` принимает `local`, `openai` (оба - OpenAI-совместимые endpoint'ы
+`/v1/audio/transcriptions`) или `none` для отключения транскрибации.
 
 Сервер транскрибации **не входит** в `compose.yml` - запускайте его сами: обычно он требует GPU
 и имеет собственный жизненный цикл. Готовый вариант с поддержкой русского языка - `oaitt`:
@@ -426,11 +424,45 @@ docker run -d --name oaitt --restart unless-stopped \
 Затем укажите его платформе:
 
 ```bash
-./setup.sh --silent --stt-provider openai --stt-url http://host.docker.internal:9007
+./setup_aibot.sh --silent --stt local --stt-url http://host.docker.internal:9007 --stt-model gigaam
 ```
 
 Если сервер транскрибации работает на другой машине, укажите её адрес
 (например, `--stt-url http://asr.internal:9007`).
+
+### Платежи и тарифы
+
+Тарифы, пакеты хранилища и пакеты AI-токенов лежат в `plan-config.yaml` (монтируется в сервис
+`payment`). Этот каталог питает страницу тарифов, бесплатный уровень и покупку токенов.
+
+По умолчанию платежи работают через **mock-провайдер**: покупка активируется мгновенно, банк не
+участвует. Подходит для self-hosted установки, где биллинг формальность, и для проверки сценария.
+
+```
+PAYMENT_PROVIDER=mock
+FREE_PLAN_LIMITS={"usersLimit":25,"storagePerUserGB":40,"tokenLimit":1000000000,"windowMonthLimit":1000000000,"trafficLimitGB":0,"meetingMinutesLimit":0}
+```
+
+`FREE_PLAN_LIMITS` получает рабочее пространство без активной подписки, значения должны совпадать
+с тарифом `free: true` в `plan-config.yaml`. Значения по умолчанию рассчитаны на self-hosted:
+25 пользователей, 1 ТБ диска (`usersLimit * storagePerUserGB`) и миллиард AI-токенов - хватит и
+рабочей команде, и тому, кто просто ставит платформу посмотреть.
+
+Чтобы прогнать полный платёжный конвейер без терминала банка, переключитесь на T-Bank с его
+встроенным моком (сам выдаёт ссылки на оплату и шлёт себе CONFIRMED-вебхук):
+
+```
+PAYMENT_PROVIDER=tbank
+TBANK_MOCK=true
+```
+
+`./up.sh` тогда дополнительно поднимает `tbank-subscriptions` (профиль compose `tbank`). Для
+реального терминала поставьте `TBANK_MOCK=false`, заполните `TBANK_TERMINAL_KEY` / `TBANK_PASSWORD`
+и раскомментируйте `location /_tbank_subscriptions` в `.platform.nginx` для приёма вебхуков.
+
+Пакеты AI-токенов - блок `purchasables` в `plan-config.yaml` (1М / 10М / 50М токенов). Купленные
+токены попадают на отдельный баланс: он не сгорает в конце тарифного окна и тратится раньше
+квоты тарифа.
 
 ### Google Calendar
 

@@ -17,7 +17,7 @@ HTTP_PORT=${HTTP_PORT}
 HTTP_BIND=${HTTP_BIND}
 
 # Platform specific variables
-TITLE=${TITLE}
+TITLE="${TITLE}"
 DEFAULT_LANGUAGE=${DEFAULT_LANGUAGE}
 LAST_NAME_FIRST=${LAST_NAME_FIRST}
 
@@ -54,25 +54,43 @@ LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
 LIVEKIT_ENABLED=${LIVEKIT_ENABLED}
 LIVEKIT_TURN_DOMAIN=${LIVEKIT_TURN_DOMAIN}
 
-# STT (Speech-to-Text) configuration for AI Bot
-# STT_PROVIDER: openai (any OpenAI-compatible /v1/audio/transcriptions endpoint), deepgram,
-#               server (delegate to connected ai-bot clients), empty = disabled
-# STT_URL: endpoint of the transcription server, e.g. http://host.docker.internal:9007
-#          for a locally running oaitt container (see README, AI Bot section)
-STT_PROVIDER=${STT_PROVIDER}
-STT_URL=${STT_URL}
-STT_API_KEY=${STT_API_KEY}
-STT_MODEL=${STT_MODEL}
-
-# LLM configuration for AI Bot
-# LLM_PROVIDER: openai (incl. OpenAI-compatible local servers like LM Studio, Ollama, vLLM),
-#               gigachat, server (delegate to connected ai-bot clients), empty = disabled
+# AI Bot (ЮляИИ) configuration. Run ./setup_aibot.sh to change it interactively:
+# it rewrites the values below and regenerates config/config-aibot.yaml, the model
+# registry the bot actually routes by (levels -> providers/models).
+#
+# LLM_MODE: local (OpenAI-compatible server on this host), openai (cloud), gigachat, none
+LLM_MODE=${LLM_MODE}
 LLM_PROVIDER=${LLM_PROVIDER}
 OPENAI_API_KEY=${OPENAI_API_KEY}
 OPENAI_BASE_URL=${OPENAI_BASE_URL}
 OPENAI_MODEL=${OPENAI_MODEL}
 OPENAI_SUMMARY_MODEL=${OPENAI_SUMMARY_MODEL}
 OPENAI_TRANSLATE_MODEL=${OPENAI_TRANSLATE_MODEL}
+# GigaChat: authorization key is base64 "client_id:client_secret" (built by setup_aibot.sh)
+GIGACHAT_AUTH_KEY=${GIGACHAT_AUTH_KEY}
+GIGACHAT_SCOPE=${GIGACHAT_SCOPE}
+GIGACHAT_CLIENT_ID=${GIGACHAT_CLIENT_ID}
+# Quality level requested by default; the catalog lives in config/config-aibot.yaml
+AI_DEFAULT_LEVEL=${AI_DEFAULT_LEVEL}
+
+# Transcription (meetings, voice notes) - an OpenAI-compatible /v1/audio/transcriptions endpoint
+# STT_MODE: local | openai | none. STT_PROVIDER is the pod-level opt-out switch ('none' disables).
+STT_MODE=${STT_MODE}
+STT_PROVIDER=${STT_PROVIDER}
+STT_URL=${STT_URL}
+STT_API_KEY=${STT_API_KEY}
+STT_MODEL=${STT_MODEL}
+
+# Payments and subscriptions
+# PAYMENT_PROVIDER: mock (plans activate instantly, no bank), tbank, polar, stripe.
+# With tbank, start the stack with the `tbank` compose profile; TBANK_MOCK=true keeps the
+# bank side in-process (payment links and CONFIRMED webhooks are issued locally).
+PAYMENT_PROVIDER=${PAYMENT_PROVIDER}
+PAYMENT_ALLOW_MOCK=${PAYMENT_ALLOW_MOCK}
+PAYMENT_SANDBOX=${PAYMENT_SANDBOX}
+TBANK_MOCK=${TBANK_MOCK}
+# Free tier limits; must match the `free: true` plan in plan-config.yaml
+FREE_PLAN_LIMITS=${FREE_PLAN_LIMITS}
 
 # Push notification keys for notification service
 PUSH_PUBLIC_KEY=${PUSH_PUBLIC_KEY}

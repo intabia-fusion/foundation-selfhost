@@ -20,6 +20,8 @@ VERSION=""
 DEV_MODE=false
 PUSH_PUBLIC=""
 PUSH_PRIVATE=""
+# AI Bot flags are forwarded to ./setup_aibot.sh verbatim
+AIBOT_ARGS=()
 
 # Show help
 show_help() {
@@ -39,15 +41,20 @@ OPTIONS:
   --livekit-host <url>  Set LiveKit server URL (default: ws://<host>/livekit)
   --push-public-key <k> VAPID public key for web push notifications
   --push-private-key <k> VAPID private key for web push notifications
-  --llm-provider <p>    AI Bot LLM provider: openai (also OpenAI-compatible local servers),
-                        gigachat, server, or empty to disable (default: openai)
-  --openai-key <k>      OpenAI-compatible API key (default: token)
-  --openai-base-url <u> OpenAI-compatible base URL (default: http://host.docker.internal:1234/v1/)
-  --openai-model <m>    Model name, also used for summary and translate models
-  --stt-provider <p>    Transcription provider: openai, deepgram, server, or empty to disable
-  --stt-url <url>       OpenAI-compatible transcription endpoint (default: http://host.docker.internal:9007)
-  --stt-key <k>         Transcription API key (default: key)
+  --llm <mode>          AI Bot model: local (OpenAI-compatible server on this host),
+                        openai (cloud), gigachat, none (default: local)
+  --llm-key <k>         LLM API key
+  --llm-url <u>         LLM base URL (default local: http://host.docker.internal:1234/v1/)
+  --llm-model <m>       Model name, also used for summary and translate models
+  --gigachat-id <id>    GigaChat client id
+  --gigachat-secret <s> GigaChat client secret
+  --gigachat-key <k>    Ready-made GigaChat authorization key (base64 "client_id:client_secret")
+  --gigachat-scope <s>  GigaChat scope (default: GIGACHAT_API_PERS)
+  --stt <mode>          Transcription: local, openai, none (default: local)
+  --stt-url <url>       Transcription endpoint (default local: http://host.docker.internal:9007)
+  --stt-key <k>         Transcription API key
   --stt-model <m>       Transcription model name
+                        See ./setup_aibot.sh --help for AI Bot configuration on its own.
   --dev                 Development mode (localhost, LiveKit with devkey, no SSL)
   --version <ver>       Set platform version (e.g., v0.8.0). Fetches latest from GitHub if not set.
   --reset-volumes       Reset volume paths to empty (use Docker named volumes)
@@ -108,36 +115,52 @@ while [[ $# -gt 0 ]]; do
             PUSH_PRIVATE="$2"
             shift 2
             ;;
-        --llm-provider)
-            _CLI_LLM_PROVIDER="$2"
+        --llm|--llm-provider)
+            AIBOT_ARGS+=(--llm "$2")
             shift 2
             ;;
-        --openai-key)
-            _CLI_OPENAI_API_KEY="$2"
+        --llm-key|--openai-key)
+            AIBOT_ARGS+=(--llm-key "$2")
             shift 2
             ;;
-        --openai-base-url)
-            _CLI_OPENAI_BASE_URL="$2"
+        --llm-url|--openai-base-url)
+            AIBOT_ARGS+=(--llm-url "$2")
             shift 2
             ;;
-        --openai-model)
-            _CLI_OPENAI_MODEL="$2"
+        --llm-model|--openai-model)
+            AIBOT_ARGS+=(--llm-model "$2")
             shift 2
             ;;
-        --stt-provider)
-            _CLI_STT_PROVIDER="$2"
+        --gigachat-id)
+            AIBOT_ARGS+=(--gigachat-id "$2")
+            shift 2
+            ;;
+        --gigachat-secret)
+            AIBOT_ARGS+=(--gigachat-secret "$2")
+            shift 2
+            ;;
+        --gigachat-key)
+            AIBOT_ARGS+=(--gigachat-key "$2")
+            shift 2
+            ;;
+        --gigachat-scope)
+            AIBOT_ARGS+=(--gigachat-scope "$2")
+            shift 2
+            ;;
+        --stt|--stt-provider)
+            AIBOT_ARGS+=(--stt "$2")
             shift 2
             ;;
         --stt-url)
-            _CLI_STT_URL="$2"
+            AIBOT_ARGS+=(--stt-url "$2")
             shift 2
             ;;
         --stt-key)
-            _CLI_STT_API_KEY="$2"
+            AIBOT_ARGS+=(--stt-key "$2")
             shift 2
             ;;
         --stt-model)
-            _CLI_STT_MODEL="$2"
+            AIBOT_ARGS+=(--stt-model "$2")
             shift 2
             ;;
         --use-livekit)
@@ -622,16 +645,28 @@ else
 fi
 
 if [[ "$_LIVEKIT_ENABLED" == true ]]; then
-    if [[ -n "$LIVEKIT_HOST" ]]; then
-        _LIVEKIT_HOST="$LIVEKIT_HOST"
-    elif [[ -n "$_SECURE" ]]; then
-        # SSL: default to wss://lkit.<host> (separate subdomain)
-        LIVEKIT_BASE_HOST="lkit.${HOST_ONLY}"
-        _LIVEKIT_HOST="${LIVEKIT_SCHEME}://${LIVEKIT_BASE_HOST}/livekit"
+    # nginx.sh generates a single server block for HOST_ADDRESS with `location /livekit/` in it,
+    # so that path is the only address that works out of the box. A separate lkit.<host> subdomain
+    # needs its own vhost and certificate — offer it, but never assume it.
+    _LIVEKIT_HOST_PROXY="${LIVEKIT_SCHEME}://${HOST_ONLY}/livekit"
+    _LIVEKIT_HOST_SUBDOMAIN="${LIVEKIT_SCHEME}://lkit.${HOST_ONLY}/livekit"
+    if [[ -n "$_CLI_LIVEKIT_HOST" ]]; then
+        _LIVEKIT_HOST="$_CLI_LIVEKIT_HOST"
+    elif [[ "$SILENT" == true ]]; then
+        _LIVEKIT_HOST="${LIVEKIT_HOST:-$_LIVEKIT_HOST_PROXY}"
     else
-        # No SSL: default to ws://<host>/livekit (path-based via nginx)
-        LIVEKIT_BASE_HOST="$HOST_ONLY"
-        _LIVEKIT_HOST="${LIVEKIT_SCHEME}://${LIVEKIT_BASE_HOST}/livekit"
+        _LIVEKIT_HOST_CURRENT="${LIVEKIT_HOST:-$_LIVEKIT_HOST_PROXY}"
+        echo -e "\n\033[1;34mLiveKit address used by browsers:\033[0m"
+        echo "  1) ${_LIVEKIT_HOST_PROXY} (proxied by the generated nginx config)"
+        echo "  2) ${_LIVEKIT_HOST_SUBDOMAIN} (separate subdomain - needs its own vhost and certificate)"
+        echo "  or enter a full URL of an external LiveKit server"
+        read -p "Choose [current: ${_LIVEKIT_HOST_CURRENT}]: " input
+        case "${input}" in
+            "") _LIVEKIT_HOST="$_LIVEKIT_HOST_CURRENT" ;;
+            1) _LIVEKIT_HOST="$_LIVEKIT_HOST_PROXY" ;;
+            2) _LIVEKIT_HOST="$_LIVEKIT_HOST_SUBDOMAIN" ;;
+            *) _LIVEKIT_HOST="$input" ;;
+        esac
     fi
     LIVEKIT_TURN_DOMAIN="${HOST_ONLY}"
 else
@@ -680,16 +715,30 @@ export LIVEKIT_API_KEY=${_LIVEKIT_API_KEY}
 export LIVEKIT_API_SECRET=${_LIVEKIT_API_SECRET}
 export LIVEKIT_ENABLED=${_LIVEKIT_ENABLED}
 export LIVEKIT_TURN_DOMAIN=${LIVEKIT_TURN_DOMAIN}
-export STT_PROVIDER=${_CLI_STT_PROVIDER:-${STT_PROVIDER:-openai}}
-export STT_URL=${_CLI_STT_URL:-${STT_URL:-http://host.docker.internal:9007}}
-export STT_API_KEY=${_CLI_STT_API_KEY:-${STT_API_KEY:-key}}
-export STT_MODEL=${_CLI_STT_MODEL:-${STT_MODEL}}
-export LLM_PROVIDER=${_CLI_LLM_PROVIDER:-${LLM_PROVIDER:-openai}}
-export OPENAI_API_KEY=${_CLI_OPENAI_API_KEY:-${OPENAI_API_KEY:-token}}
-export OPENAI_BASE_URL=${_CLI_OPENAI_BASE_URL:-${OPENAI_BASE_URL:-http://host.docker.internal:1234/v1/}}
-export OPENAI_MODEL=${_CLI_OPENAI_MODEL:-${OPENAI_MODEL:-openai/gpt-oss-20b}}
-export OPENAI_SUMMARY_MODEL=${_CLI_OPENAI_MODEL:-${OPENAI_SUMMARY_MODEL:-$OPENAI_MODEL}}
-export OPENAI_TRANSLATE_MODEL=${_CLI_OPENAI_MODEL:-${OPENAI_TRANSLATE_MODEL:-$OPENAI_MODEL}}
+# AI Bot values: keep what is already configured; ./setup_aibot.sh (run below) owns them.
+export LLM_MODE=${LLM_MODE:-local}
+export LLM_PROVIDER=${LLM_PROVIDER:-openai}
+export OPENAI_API_KEY=${OPENAI_API_KEY:-token}
+export OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://host.docker.internal:1234/v1/}
+export OPENAI_MODEL=${OPENAI_MODEL:-openai/gpt-oss-20b}
+export OPENAI_SUMMARY_MODEL=${OPENAI_SUMMARY_MODEL:-$OPENAI_MODEL}
+export OPENAI_TRANSLATE_MODEL=${OPENAI_TRANSLATE_MODEL:-$OPENAI_MODEL}
+export GIGACHAT_AUTH_KEY=${GIGACHAT_AUTH_KEY}
+export GIGACHAT_SCOPE=${GIGACHAT_SCOPE:-GIGACHAT_API_PERS}
+export GIGACHAT_CLIENT_ID=${GIGACHAT_CLIENT_ID}
+export AI_DEFAULT_LEVEL=${AI_DEFAULT_LEVEL:-middle}
+# Payments: mock provider by default (plans and packages activate instantly, no bank involved)
+export PAYMENT_PROVIDER=${PAYMENT_PROVIDER:-mock}
+export PAYMENT_ALLOW_MOCK=${PAYMENT_ALLOW_MOCK:-true}
+export PAYMENT_SANDBOX=${PAYMENT_SANDBOX:-true}
+export TBANK_MOCK=${TBANK_MOCK:-true}
+# Free tier of a self-hosted install; disk = usersLimit * storagePerUserGB (25 * 40 = 1 TB).
+export FREE_PLAN_LIMITS=${FREE_PLAN_LIMITS:-'{"usersLimit":25,"storagePerUserGB":40,"tokenLimit":1000000000,"windowMonthLimit":1000000000,"trafficLimitGB":0,"meetingMinutesLimit":0}'}
+export STT_MODE=${STT_MODE:-local}
+export STT_PROVIDER=${STT_PROVIDER:-openai}
+export STT_URL=${STT_URL:-http://host.docker.internal:9007}
+export STT_API_KEY=${STT_API_KEY:-key}
+export STT_MODEL=${STT_MODEL:-gigaam}
 # Web Push VAPID keys — generate if not provided and not already configured
 _PUSH_PUBLIC="${PUSH_PUBLIC:-${PUSH_PUBLIC_KEY:-}}"
 _PUSH_PRIVATE="${PUSH_PRIVATE:-${PUSH_PRIVATE_KEY:-}}"
@@ -738,6 +787,17 @@ fi
 envsubst < templates/platform.conf.template > "$CONFIG_FILE"
 source "$CONFIG_FILE"
 export CR_DB_URL=$CR_DB_URL
+
+# AI Bot: rewrite the AI values in platform.conf and regenerate config/config-aibot.yaml.
+# Interactive without flags only when the registry does not exist yet.
+if [[ ${#AIBOT_ARGS[@]} -gt 0 ]]; then
+    ./setup_aibot.sh --silent "${AIBOT_ARGS[@]}"
+elif [[ "$SILENT" == false && ! -f "$CONFIG_DIR/config-aibot.yaml" ]]; then
+    ./setup_aibot.sh
+else
+    ./setup_aibot.sh --silent
+fi
+source "$CONFIG_FILE"
 
 # Summary
 echo -e "\n\033[1;34mConfiguration Summary:\033[0m"

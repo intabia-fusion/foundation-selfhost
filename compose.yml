@@ -199,6 +199,9 @@ services:
       - ACCOUNT_PORT=3000
       - QUEUE_CONFIG=redpanda:9092
       - MAIL_URL=http://mail_server:8097
+      # Free tier limits, must match the `free: true` plan in plan-config.yaml.
+      # Applied to every workspace without an active paid subscription.
+      - FREE_PLAN_LIMITS=${FREE_PLAN_LIMITS}
     restart: unless-stopped
     networks:
       - platform_net
@@ -257,7 +260,7 @@ services:
       - PUSH_PUBLIC_KEY=${PUSH_PUBLIC_KEY:-}
       - AI_URL=http${SECURE:+s}://${HOST_ADDRESS}/_ai
       - BILLING_URL=http${SECURE:+s}://${HOST_ADDRESS}/_billing
-      # - PAYMENT_URL=http${SECURE:+s}://${HOST_ADDRESS}/_payment
+      - PAYMENT_URL=http${SECURE:+s}://${HOST_ADDRESS}/_payment
       - MAIL_URL=http://mail_server:8097
     restart: unless-stopped
     networks:
@@ -362,55 +365,82 @@ services:
     networks:
       - platform_net
 
-  # payment:
-  #   image: intabiafusion/payment:${PLATFORM_VERSION}
-  #   extra_hosts:
-  #     - 'host.docker.internal:host-gateway'
-  #   volumes:
-  #     - ./plan-config.yaml:/var/cfg/plan-config.yaml
-  #   depends_on:
-  #     account:
-  #       condition: service_started
-  #   environment:
-  #     - SECRET=${SECRET}
-  #     - PORT=4040
-  #     - ACCOUNTS_URL=http://account:3000
-  #     - FRONT_URL=http${SECURE:+s}://${HOST_ADDRESS}
-  #     - USE_SANDBOX=false
-  #     - PROVIDER=tbank
-  #     - PLAN_CONFIG=/var/cfg/plan-config.yaml
-  #     - TBANK_SUBSCRIPTIONS_URL=http://tbank-subscriptions:4042
-  #     # Polar configuration (uncomment if using Polar)
-  #     # - POLAR_ACCESS_TOKEN=${POLAR_ACCESS_TOKEN}
-  #     # - POLAR_WEBHOOK_SECRET=${POLAR_WEBHOOK_SECRET}
-  #     # - POLAR_SUBSCRIPTION_PLANS=${POLAR_SUBSCRIPTION_PLANS}
-  #     # Stripe configuration (uncomment if using Stripe)
-  #     # - STRIPE_API_KEY=${STRIPE_API_KEY}
-  #     # - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
-  #     # - STRIPE_SUBSCRIPTION_PLANS=${STRIPE_SUBSCRIPTION_PLANS}
-  #     # - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-  #   restart: unless-stopped
-  #   networks:
-  #     - platform_net
-  # tbank-subscriptions:
-  #   image: intabiafusion/tbank-subscriptions:${PLATFORM_VERSION}
-  #   depends_on:
-  #     account:
-  #       condition: service_started
-  #   environment:
-  #     - SECRET=${SECRET}
-  #     - PORT=4042
-  #     - ACCOUNTS_URL=http://account:3000
-  #     - FRONT_URL=http${SECURE:+s}://${HOST_ADDRESS}
-  #     - TBANK_TERMINAL_KEY=test_key
-  #     - TBANK_PASSWORD=test_key
-  #     - TBANK_URL=https://securepay.tinkoff.ru
-  #     - TBANK_SUBSCRIPTION_PLANS=start@tier:29900;standard@tier:59900;business@tier:99900;100gb@package:100000;500gb@package:500000;1000gb@package:1000000
-  #     - SCHEDULER_INTERVAL_MINUTES=${TBANK_SCHEDULER_INTERVAL_MINUTES:-60}
-  #     # - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-  #   restart: unless-stopped
-  #   networks:
-  #     - platform_net
+  # Subscriptions and one-off purchases (storage packages, AI token packs). Plans, prices and
+  # purchasables come from plan-config.yaml, shared with tbank-subscriptions over PAYMENT_URL.
+  payment:
+    image: intabiafusion/payment:${PLATFORM_VERSION}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - ./plan-config.yaml:/var/cfg/plan-config.yaml
+    depends_on:
+      account:
+        condition: service_started
+    environment:
+      - SECRET=${SECRET}
+      - PORT=4040
+      - ACCOUNTS_URL=http://account:3000
+      - FRONT_URL=http${SECURE:+s}://${HOST_ADDRESS}
+      - PLAN_CONFIG=/var/cfg/plan-config.yaml
+      - QUEUE_CONFIG=redpanda:9092
+      - QUEUE_REGION=
+      # PAYMENT_PROVIDER: mock (plans activate instantly, no bank), tbank (route to
+      # tbank-subscriptions), polar, stripe.
+      - PROVIDER=${PAYMENT_PROVIDER:-mock}
+      - ALLOW_MOCK_PROVIDER=${PAYMENT_ALLOW_MOCK:-true}
+      - USE_SANDBOX=${PAYMENT_SANDBOX:-true}
+      - TBANK_SUBSCRIPTIONS_URL=http://tbank-subscriptions:4042
+      # Polar configuration (uncomment if using Polar)
+      # - POLAR_ACCESS_TOKEN=${POLAR_ACCESS_TOKEN}
+      # - POLAR_WEBHOOK_SECRET=${POLAR_WEBHOOK_SECRET}
+      # - POLAR_SUBSCRIPTION_PLANS=${POLAR_SUBSCRIPTION_PLANS}
+      # Stripe configuration (uncomment if using Stripe)
+      # - STRIPE_API_KEY=${STRIPE_API_KEY}
+      # - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      # - STRIPE_SUBSCRIPTION_PLANS=${STRIPE_SUBSCRIPTION_PLANS}
+      # - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+    restart: unless-stopped
+    networks:
+      - platform_net
+
+  # Bank integration for PAYMENT_PROVIDER=tbank. With TBANK_MOCK=true it issues payment links
+  # itself and fires its own CONFIRMED webhook, so the whole flow runs without a real terminal.
+  tbank-subscriptions:
+    image: intabiafusion/tbank-subscriptions:${PLATFORM_VERSION}
+    profiles:
+      - tbank
+    depends_on:
+      account:
+        condition: service_started
+      payment:
+        condition: service_started
+    environment:
+      - SECRET=${SECRET}
+      - PORT=4042
+      - ACCOUNTS_URL=http://account:3000
+      - FRONT_URL=http${SECURE:+s}://${HOST_ADDRESS}
+      - QUEUE_CONFIG=redpanda:9092
+      - QUEUE_REGION=
+      # Source of plan prices and localized plan labels for emails
+      - PAYMENT_URL=http://payment:4040
+      # In-process mock bank: no terminal credentials, self-fired CONFIRMED webhook
+      - TBANK_MOCK=${TBANK_MOCK:-true}
+      - TBANK_TERMINAL_KEY=${TBANK_TERMINAL_KEY:-test}
+      - TBANK_PASSWORD=${TBANK_PASSWORD:-test}
+      - TBANK_URL=https://securepay.tinkoff.ru
+      - TBANK_TAXATION=${TBANK_TAXATION:-usn_income}
+      - TBANK_VAT_TAX=${TBANK_VAT_TAX:-none}
+      - TBANK_SKIP_WEBHOOK_VERIFICATION=${TBANK_MOCK:-true}
+      - SCHEDULER_INTERVAL_MINUTES=${TBANK_SCHEDULER_INTERVAL_MINUTES:-60}
+      - GRACE_PERIOD_DAYS=${TBANK_GRACE_PERIOD_DAYS:-7}
+      - UPCOMING_NOTICE_DAYS=${TBANK_UPCOMING_NOTICE_DAYS:-5}
+      - MAIL_URL=http://mail_server:8097
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL:-}
+      - SUPPORT_URL=${SUPPORT_URL:-}
+      # - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+    restart: unless-stopped
+    networks:
+      - platform_net
 
   stream:
     image: intabiafusion/stream:${PLATFORM_VERSION}
@@ -502,6 +532,9 @@ services:
     links:
       - account
       - transactor
+    volumes:
+      # Model registry (levels -> models) generated by ./setup_aibot.sh.
+      - ./config/config-aibot.yaml:/var/cfg/config.yaml
     environment:
       - PORT=4011
       - SERVER_SECRET=${SECRET}
@@ -517,13 +550,22 @@ services:
       - STATS_URL=http://stats:4900
       - LOVE_ENDPOINT=http://love:8097
       - BILLING_URL=http://billing:4042
-      # LLM_PROVIDER: openai (incl. OpenAI-compatible local servers), gigachat, server (delegate to clients), empty = disabled
+      # Model registry: levels -> providers/models. Replaces the single-provider env setup.
+      - CONFIG_PATH=/var/cfg/config.yaml
+      # All-in-one role: event-router + llm-router + stt-worker (+ stt ingest).
+      - MODE=all
+      - AI_DEFAULT_LEVEL=${AI_DEFAULT_LEVEL:-middle}
+      # Values referenced as ${...} placeholders from config-aibot.yaml.
       - LLM_PROVIDER=${LLM_PROVIDER:-openai}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL}
       - OPENAI_SUMMARY_MODEL=${OPENAI_SUMMARY_MODEL}
       - OPENAI_TRANSLATE_MODEL=${OPENAI_TRANSLATE_MODEL}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - GIGACHAT_AUTH_KEY=${GIGACHAT_AUTH_KEY}
+      - GIGACHAT_SCOPE=${GIGACHAT_SCOPE:-GIGACHAT_API_PERS}
+      # STT_PROVIDER is an opt-out switch only ('none' disables ASR); the provider/model
+      # come from the `asr:` block of config-aibot.yaml.
       - STT_PROVIDER=${STT_PROVIDER:-openai}
       - STT_URL=${STT_URL}
       - STT_API_KEY=${STT_API_KEY}
