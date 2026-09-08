@@ -100,6 +100,7 @@ plans:
     trafficLimitGB: 0
     meetingMinutesLimit: 0
     tokenLimit: 0
+    windowMonthLimit: 0
     usersLimit: 0
     index: 1
     color: Orchid
@@ -161,6 +162,7 @@ plans:
     trafficLimitGB: 0
     meetingMinutesLimit: 0
     tokenLimit: 0
+    windowMonthLimit: 0
     usersLimit: 0
     index: 2
     color: Orange
@@ -171,6 +173,7 @@ trial:
   plan: business
   days: 14
   usersLimit: 1000
+  windowMonthLimit: 0
 packages:
   100gb:
     description:

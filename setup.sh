@@ -18,6 +18,8 @@ SSL_CERT=""
 SSL_KEY=""
 VERSION=""
 IMAGE_PREFIX=""
+# Per-stand overrides collected from --env KEY=VALUE
+EXTRA_ENV=()
 DEV_MODE=false
 PUSH_PUBLIC=""
 PUSH_PRIVATE=""
@@ -60,6 +62,8 @@ OPTIONS:
   --version <ver>       Set platform version (e.g., v0.8.0). Fetches latest from GitHub if not set.
   --registry <prefix>   Registry/namespace for platform images
                         (e.g., registry.example.com/myns; default: intabiafusion)
+  --env KEY=VALUE       Override any platform.conf value (repeatable). Use for per-stand
+                        settings, e.g. --env PAYMENT_PROVIDER=tbank --env TBANK_MOCK=false
   --reset-volumes       Reset volume paths to empty (use Docker named volumes)
   --help                Show this help message
 
@@ -184,6 +188,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --registry)
             IMAGE_PREFIX="$2"
+            shift 2
+            ;;
+        --env)
+            EXTRA_ENV+=("$2")
             shift 2
             ;;
         --reset-volumes)
@@ -795,6 +803,21 @@ fi
 
 # Generate platform.conf
 envsubst < templates/platform.conf.template > "$CONFIG_FILE"
+
+# Per-stand overrides win over the template. Rewritten by key, so a repeated --env replaces
+# the generated line instead of leaving two of them.
+for kv in "${EXTRA_ENV[@]}"; do
+    key="${kv%%=*}"
+    if [ "$key" == "$kv" ]; then
+        echo -e "\033[1;31mError: --env expects KEY=VALUE, got '$kv'\033[0m" && exit 1
+    fi
+    grep -v "^${key}=" "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+    echo "$kv" >> "$CONFIG_FILE"
+done
+if [ ${#EXTRA_ENV[@]} -gt 0 ]; then
+    echo "Config overrides: ${EXTRA_ENV[*]%%=*}"
+fi
+
 source "$CONFIG_FILE"
 export CR_DB_URL=$CR_DB_URL
 

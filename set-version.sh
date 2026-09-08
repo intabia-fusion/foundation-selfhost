@@ -98,6 +98,11 @@ elif [ "$LIVEKIT_ENABLED" == "true" ]; then
     DC="$DC --profile livekit"
 fi
 
+# Same profile as up.sh, otherwise tbank-subscriptions is never pulled or restarted here.
+if [ "$PAYMENT_PROVIDER" == "tbank" ]; then
+    DC="$DC --profile tbank"
+fi
+
 # Handle image pulling and restart based on silent mode
 if [ "$SILENT" == true ]; then
     echo "Silent mode enabled. Skipping interactive prompts."
