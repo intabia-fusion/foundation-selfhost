@@ -17,6 +17,7 @@ SSL=""
 SSL_CERT=""
 SSL_KEY=""
 VERSION=""
+IMAGE_PREFIX=""
 DEV_MODE=false
 PUSH_PUBLIC=""
 PUSH_PRIVATE=""
@@ -57,6 +58,8 @@ OPTIONS:
                         See ./setup_aibot.sh --help for AI Bot configuration on its own.
   --dev                 Development mode (localhost, LiveKit with devkey, no SSL)
   --version <ver>       Set platform version (e.g., v0.8.0). Fetches latest from GitHub if not set.
+  --registry <prefix>   Registry/namespace for platform images
+                        (e.g., registry.example.com/myns; default: intabiafusion)
   --reset-volumes       Reset volume paths to empty (use Docker named volumes)
   --help                Show this help message
 
@@ -179,6 +182,10 @@ while [[ $# -gt 0 ]]; do
             VERSION="$2"
             shift 2
             ;;
+        --registry)
+            IMAGE_PREFIX="$2"
+            shift 2
+            ;;
         --reset-volumes)
             RESET_VOLUMES=true
             shift
@@ -219,6 +226,7 @@ _CLI_SILENT=$SILENT
 _CLI_USE_LIVEKIT=$USE_LIVEKIT
 _CLI_LIVEKIT_HOST=$LIVEKIT_HOST
 _CLI_VERSION=$VERSION
+_CLI_IMAGE_PREFIX=$IMAGE_PREFIX
 _CLI_HOST=$HOST
 _CLI_HTTP_PORT=$HTTP_PORT
 _CLI_SSL=$SSL
@@ -238,6 +246,7 @@ fi
 [[ -n "$_CLI_USE_LIVEKIT" ]] && USE_LIVEKIT=$_CLI_USE_LIVEKIT
 [[ -n "$_CLI_LIVEKIT_HOST" ]] && LIVEKIT_HOST=$_CLI_LIVEKIT_HOST
 [[ -n "$_CLI_VERSION" ]] && VERSION=$_CLI_VERSION
+[[ -n "$_CLI_IMAGE_PREFIX" ]] && IMAGE_PREFIX=$_CLI_IMAGE_PREFIX
 [[ -n "$_CLI_HOST" ]] && HOST=$_CLI_HOST
 [[ -n "$_CLI_HTTP_PORT" ]] && HTTP_PORT=$_CLI_HTTP_PORT
 [[ -n "$_CLI_SSL" ]] && SSL=$_CLI_SSL
@@ -405,6 +414,7 @@ fi
 echo "$PLATFORM_VERSION" > "$CONFIG_DIR/version.txt"
 export PLATFORM_VERSION
 export DESKTOP_CHANNEL=$PLATFORM_VERSION
+export IMAGE_PREFIX="${IMAGE_PREFIX:-intabiafusion}"
 PREV_LIVEKIT_TURN_DOMAIN="${LIVEKIT_TURN_DOMAIN}"
 
 # Set values from arguments or prompt
@@ -803,6 +813,7 @@ source "$CONFIG_FILE"
 echo -e "\n\033[1;34mConfiguration Summary:\033[0m"
 [[ "$DEV_MODE" == true ]] && echo -e "Mode: \033[1;33mDevelopment\033[0m"
 echo -e "Version: \033[1;32m$PLATFORM_VERSION\033[0m"
+echo -e "Images: \033[1;32m$IMAGE_PREFIX\033[0m"
 echo -e "Host Address: \033[1;32m$_HOST_ADDRESS\033[0m"
 echo -e "HTTP Port: \033[1;32m$_HTTP_PORT\033[0m"
 [[ -n "$SECURE" ]] && echo -e "SSL: \033[1;32mYes\033[0m" || echo -e "SSL: \033[1;31mNo\033[0m"

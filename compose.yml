@@ -37,7 +37,7 @@ services:
       - platform_net
 
   db-migrator:
-    image: intabiafusion/db-migrator:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/db-migrator:${PLATFORM_VERSION}
     depends_on:
       postgres:
         condition: service_healthy
@@ -124,7 +124,7 @@ services:
       - platform_net
 
   rekoni:
-    image: intabiafusion/rekoni-service:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/rekoni-service:${PLATFORM_VERSION}
     environment:
       - SECRET=${SECRET}
     deploy:
@@ -136,7 +136,7 @@ services:
       - platform_net
 
   transactor:
-    image: intabiafusion/transactor:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/transactor:${PLATFORM_VERSION}
     depends_on:
       account:
         condition: service_started
@@ -164,7 +164,7 @@ services:
       - platform_net
 
   collaborator:
-    image: intabiafusion/collaborator:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/collaborator:${PLATFORM_VERSION}
     environment:
       - COLLABORATOR_PORT=3078
       - SECRET=${SECRET}
@@ -176,7 +176,7 @@ services:
       - platform_net
 
   account:
-    image: intabiafusion/account:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/account:${PLATFORM_VERSION}
     links:
       - postgres
     volumes:
@@ -207,7 +207,7 @@ services:
       - platform_net
 
   workspace:
-    image: intabiafusion/workspace:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/workspace:${PLATFORM_VERSION}
     volumes:
       - ./config/branding.json:/var/cfg/branding.json:ro
     environment:
@@ -227,7 +227,7 @@ services:
       - platform_net
 
   front:
-    image: intabiafusion/front:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/front:${PLATFORM_VERSION}
     volumes:
       - ./config/branding.json:/app/dist/branding.json:ro
     environment:
@@ -266,7 +266,7 @@ services:
     networks:
       - platform_net
   datalake:
-    image: intabiafusion/datalake:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/datalake:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -293,7 +293,7 @@ services:
     networks:
       - platform_net
   fulltext:
-    image: intabiafusion/fulltext:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/fulltext:${PLATFORM_VERSION}
     environment:
       - SERVER_SECRET=${SECRET}
       - DB_URL=${CR_DB_URL}
@@ -309,7 +309,7 @@ services:
       - platform_net
 
   stats:
-    image: intabiafusion/stats:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/stats:${PLATFORM_VERSION}
     environment:
       - PORT=4900
       - SERVER_SECRET=${SECRET}
@@ -318,7 +318,7 @@ services:
       - platform_net
 
   rating:
-    image: intabiafusion/rating:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/rating:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     links:
@@ -349,7 +349,7 @@ services:
     networks:
       - platform_net
   process-service:
-    image: intabiafusion/process:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/process:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -368,7 +368,7 @@ services:
   # Subscriptions and one-off purchases (storage packages, AI token packs). Plans, prices and
   # purchasables come from plan-config.yaml, shared with tbank-subscriptions over PAYMENT_URL.
   payment:
-    image: intabiafusion/payment:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/payment:${PLATFORM_VERSION}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     volumes:
@@ -406,7 +406,7 @@ services:
   # Bank integration for PAYMENT_PROVIDER=tbank. With TBANK_MOCK=true it issues payment links
   # itself and fires its own CONFIRMED webhook, so the whole flow runs without a real terminal.
   tbank-subscriptions:
-    image: intabiafusion/tbank-subscriptions:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/tbank-subscriptions:${PLATFORM_VERSION}
     profiles:
       - tbank
     depends_on:
@@ -443,7 +443,7 @@ services:
       - platform_net
 
   stream:
-    image: intabiafusion/stream:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/stream:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -464,7 +464,7 @@ services:
     networks:
       - platform_net
   media:
-    image: intabiafusion/media:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/media:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -475,7 +475,7 @@ services:
     networks:
       - platform_net
   preview:
-    image: intabiafusion/preview:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/preview:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -490,7 +490,7 @@ services:
       - platform_net
 
   love:
-    image: intabiafusion/love:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/love:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -523,7 +523,7 @@ services:
       - platform_net
 
   aibot:
-    image: intabiafusion/ai-bot:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/ai-bot:${PLATFORM_VERSION}
     ports:
       - 4011:4011
     extra_hosts:
@@ -574,7 +574,7 @@ services:
       - platform_net
 
   love-agent:
-    image: intabiafusion/love-agent:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/love-agent:${PLATFORM_VERSION}
     profiles:
       - livekit
       - livekit-dev
@@ -596,7 +596,7 @@ services:
       - platform_net
 
   billing:
-    image: intabiafusion/billing:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/billing:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -620,7 +620,7 @@ services:
       - platform_net
 
   #  desktop-dist:
-  #    image: intabiafusion/desktop-distro:${PLATFORM_VERSION}
+  #    image: ${IMAGE_PREFIX:-intabiafusion}/desktop-distro:${PLATFORM_VERSION}
   #    platform: linux/amd64
   #    extra_hosts:
   #      - 'host.docker.internal:host-gateway'
@@ -633,7 +633,7 @@ services:
   #      - platform_net
 
   notifications:
-    image: intabiafusion/notifications:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/notifications:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -679,7 +679,7 @@ services:
       - ./config/certs:/etc/livekit/certs:ro
 
   mail_server:
-    image: intabiafusion/mail:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/mail:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -722,7 +722,7 @@ services:
 
   # Additional services
   print:
-    image: intabiafusion/print:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/print:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -737,7 +737,7 @@ services:
       - platform_net
 
   analytics:
-    image: intabiafusion/analytics-collector:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/analytics-collector:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -751,7 +751,7 @@ services:
       - platform_net
 
   export:
-    image: intabiafusion/export:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/export:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     links:
@@ -770,7 +770,7 @@ services:
       - platform_net
 
   time-machine:
-    image: intabiafusion/worker:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/worker:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -806,7 +806,7 @@ services:
       - platform_net
 
   link-preview:
-    image: intabiafusion/link-preview:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/link-preview:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -817,7 +817,7 @@ services:
       - platform_net
 
   activity:
-    image: intabiafusion/activity:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/activity:${PLATFORM_VERSION}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -845,7 +845,7 @@ services:
       - platform_net
 
   notification:
-    image: intabiafusion/notification:${PLATFORM_VERSION}
+    image: ${IMAGE_PREFIX:-intabiafusion}/notification:${PLATFORM_VERSION}
     environment:
       - PORT=3335
       - SOURCE=mail@example.com

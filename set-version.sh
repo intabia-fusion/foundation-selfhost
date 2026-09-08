@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
 # Script to update Intabia Platform version
-# Usage: ./set-version.sh [--silent] <version>
+# Usage: ./set-version.sh [--silent] [--registry <prefix>] <version>
 # Example: ./set-version.sh v0.8.0
 #          ./set-version.sh --silent v0.8.0
+#          ./set-version.sh --silent --registry registry.example.com/myns v0.8.0
 
 set -e
 
@@ -14,6 +15,7 @@ TEMPLATE_VERSION_FILE="templates/version.txt"
 
 # Default values
 SILENT=false
+IMAGE_PREFIX=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -21,6 +23,10 @@ while [[ $# -gt 0 ]]; do
         --silent)
             SILENT=true
             shift
+            ;;
+        --registry)
+            IMAGE_PREFIX="$2"
+            shift 2
             ;;
         *)
             # Assume it's the version argument
@@ -43,7 +49,7 @@ get_current_version() {
 
 # Check if version argument is provided
 if [ -z "$NEW_VERSION" ]; then
-    echo "Usage: $0 [--silent] <version>"
+    echo "Usage: $0 [--silent] [--registry <prefix>] <version>"
     echo "Example: $0 v0.8.0"
     echo "         $0 --silent v0.8.0"
     echo ""
@@ -64,6 +70,15 @@ echo "Version updated: ${CURRENT_VERSION:-'(none)'} -> $NEW_VERSION"
 if [ -f "$CONFIG_FILE" ]; then
     sed -i.bak "s/^PLATFORM_VERSION=.*/PLATFORM_VERSION=$NEW_VERSION/" "$CONFIG_FILE"
     sed -i.bak "s/^DESKTOP_CHANNEL=.*/DESKTOP_CHANNEL=$NEW_VERSION/" "$CONFIG_FILE"
+    if [ -n "$IMAGE_PREFIX" ]; then
+        # Stands set up before IMAGE_PREFIX existed have no such line yet.
+        if grep -q '^IMAGE_PREFIX=' "$CONFIG_FILE"; then
+            sed -i.bak "s|^IMAGE_PREFIX=.*|IMAGE_PREFIX=$IMAGE_PREFIX|" "$CONFIG_FILE"
+        else
+            echo "IMAGE_PREFIX=$IMAGE_PREFIX" >> "$CONFIG_FILE"
+        fi
+        echo "Image prefix: $IMAGE_PREFIX"
+    fi
     rm -f "$CONFIG_FILE.bak"
     echo "Config file updated: $CONFIG_FILE"
 fi

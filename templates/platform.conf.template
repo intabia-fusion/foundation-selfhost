@@ -1,4 +1,6 @@
 PLATFORM_VERSION=${PLATFORM_VERSION}
+# Registry/namespace for platform images. elastic-plugins is not mirrored, it stays on Docker Hub.
+IMAGE_PREFIX=${IMAGE_PREFIX}
 DESKTOP_CHANNEL=${DESKTOP_CHANNEL}
 DOCKER_NAME=${DOCKER_NAME}
 DEV_MODE=${DEV_MODE}
